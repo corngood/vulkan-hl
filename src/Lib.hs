@@ -18,7 +18,17 @@ class FromVk a b | a -> b where
   fromVk :: a -> IO b
 
 class WithVk a b | a -> b where
-  withVk :: a -> (Ptr b -> IO c) -> IO c
+  withVk :: a -> (b -> IO c) -> IO c
+
+instance WithVk String CString where
+  withVk = withCString
+
+withList :: WithVk a b => [a] -> ([b] -> IO c) -> IO c
+withList a f =
+  member (reverse a) []
+  where
+    member [] l = f l
+    member (x:xs) l = withVk x (\y -> member xs (y:l))
 
 type LayerName = String
 type ExtensionName = String
@@ -40,15 +50,19 @@ instance WithVk ApplicationInfo VkApplicationInfo where
   withVk a f =
     withCString (applicationName a)
     (\namePtr ->
-      with (VkApplicationInfo
-            VK_STRUCTURE_TYPE_APPLICATION_INFO
-            nullPtr namePtr 1 namePtr 0 (vkMakeVersion 1 0 3)
-           ) f
+      f $ VkApplicationInfo VK_STRUCTURE_TYPE_APPLICATION_INFO
+      nullPtr namePtr 1 namePtr 0 (vkMakeVersion 1 0 3)
     )
 
 instance WithVk InstanceCreateInfo VkInstanceCreateInfo where
-  withVk a f = wrapInPtr (applicationInfo a) (\g -> with (g 0 nullPtr 0 nullPtr) f) $
-    VkInstanceCreateInfo VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO nullPtr (VkInstanceCreateFlags zeroBits)
+  withVk a f = wrapInPtr (applicationInfo a)
+    (wrapArray (enabledLayers a)
+    (wrapArray (enabledExtensions a) f))
+    (VkInstanceCreateInfo VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO nullPtr (VkInstanceCreateFlags zeroBits))
+
+-- instance WithVk InstanceCreateInfo VkInstanceCreateInfo where
+--   withVk a f = wrapInPtr (applicationInfo a) (\g -> f $ g 0 nullPtr 0 nullPtr) $
+--     VkInstanceCreateInfo VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO nullPtr (VkInstanceCreateFlags zeroBits)
 
 data Instance = Instance VkInstance
               deriving (Eq, Ord, Show)
@@ -82,11 +96,14 @@ wrapCountArray f =
                                )
          )
 
-wrapInPtr :: WithVk a b => a -> (c -> IO d) -> (Ptr b -> c) -> IO d
-wrapInPtr a g f = withVk a (g . f)
-
 wrapString :: String -> (c -> IO d) -> (CString -> c) -> IO d
 wrapString a g f = withCString a (g . f)
+
+wrapInPtr :: (WithVk a b, Storable b) => a -> (c -> IO d) -> (Ptr b -> c) -> IO d
+wrapInPtr a g f = withVk a (\x -> with x (g . f))
+
+wrapArray :: (Num l, WithVk a b, Storable b) => [a] -> (c -> IO d) -> (l -> Ptr b -> c) -> IO d
+wrapArray a g f = withList a (\x -> withArrayLen x (\l p -> g $ f (fromIntegral l) p))
 
 wrapOutPtr :: (Storable a, FromVk a b) => (c -> IO VkResult) -> (Ptr a -> c) -> IO b
 wrapOutPtr g f =

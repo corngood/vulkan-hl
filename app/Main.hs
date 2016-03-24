@@ -12,7 +12,10 @@ import SDL.Video.Vulkan
 main :: IO ()
 main = do
   initialize [InitVideo]
-  instanceExtensions >>= print
+  iext <- instanceExtensions
+  let
+    app = ApplicationInfo "vulkan-test" (Version 0 0 0) "none" (Version 0 0 0) (Version 1 0 3)
+    ici = InstanceCreateInfo app [] iext
   createInstance ici >>= print
   window <- createWindow "Vulkan Test" defaultWindow
   showWindow window
@@ -22,6 +25,3 @@ main = do
   loop
   destroyWindow window
   quit
-  where
-    app = ApplicationInfo "vulkan-test" (Version 0 0 0) "none" (Version 0 0 0) (Version 1 0 3)
-    ici = InstanceCreateInfo app [] []
