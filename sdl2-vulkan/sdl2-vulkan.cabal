@@ -1,0 +1,46 @@
+name: sdl2-vulkan
+version: 0.1.0
+cabal-version: >= 1.10
+build-type: Simple
+license: MIT
+license-file: LICENSE
+copyright: 2016 David McFarland
+author: David McFarland <corngood@gmail.com>
+maintainer: David McFarland <corngood@gmail.com>
+stability: alpha
+homepage: https://github.com/corngood/sdl2-vulkan
+bug-reports: https://github.com/corngood/sdl2-vulkan/issues
+synopsis: A binding for SDL2_vulkan
+description:
+    Allows creation of vulkan surfaces for sdl2 windows
+category: Graphics
+
+source-repository head
+    type: git
+    location: https://github.com/corngood/sdl2-vulkan.git
+
+flag dev
+    manual: True
+    default: False
+
+library
+    exposed-modules:
+        SDL.Video.Vulkan
+    hs-source-dirs:
+        src
+    default-language:
+        Haskell2010
+    build-depends:
+        base,
+        sdl2,
+        vulkan
+    ghc-options:
+        -Wall
+        -fno-warn-unused-do-bind
+        -fno-warn-name-shadowing
+    extra-libraries:
+        SDL_vulkan
+    extra-lib-dirs:
+        /home/david/git/SDL_vulkan/build/src
+    if flag(dev)
+        ghc-options: -Werror
