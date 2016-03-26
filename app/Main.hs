@@ -19,7 +19,9 @@ main = do
     ici = InstanceCreateInfo app [] iext
   inst <- createInstance ici
   surface <- createSurface window inst
-  physicalDevices inst >>= print
+  print surface
+  queues <- physicalDevices inst >>= sequence . (fmap queueFamilyProperties)
+  print queues
   showWindow window
   let loop = do
         e <- fmap eventPayload <$> pollEvents

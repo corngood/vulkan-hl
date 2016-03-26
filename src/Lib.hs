@@ -1,8 +1,10 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# language FlexibleInstances #-}
+{-# language TypeSynonymInstances #-}
 {-# language FunctionalDependencies #-}
 {-# language MultiParamTypeClasses #-}
 {-# language DuplicateRecordFields #-}
+{-# language StandaloneDeriving #-}
+{-# options_ghc -fno-warn-orphans #-}
 
 module Lib where
 
@@ -17,6 +19,10 @@ import Foreign.Storable
 import Graphics.Vulkan
 import SDL.Internal.Types (Window(Window))
 import SDL.Video.Vulkan
+
+deriving instance Show VkSurfaceKHR
+deriving instance Show VkExtent3D
+deriving instance Show VkQueueFamilyProperties
 
 class FromVk a b | a -> b where
   fromVk :: a -> IO b
@@ -79,9 +85,9 @@ instance FromVk VkInstance Instance where
   fromVk = return . Instance
 
 data Surface = Surface VkSurfaceKHR
-              deriving (Eq)
+              deriving (Eq, Show)
 
-instance Show Surface where show (Surface (VkSurfaceKHR w)) = "Surface " ++ show w
+-- instance Show Surface where show (Surface (VkSurfaceKHR w)) = "Surface " ++ show w
 
 instance FromVk VkSurfaceKHR Surface where
   fromVk = return . Surface
@@ -105,7 +111,23 @@ data PhysicalDevice = PhysicalDevice VkPhysicalDevice
 instance FromVk VkPhysicalDevice PhysicalDevice where
   fromVk = return . PhysicalDevice
 
-wrapCountArray :: (Storable a, FromVk a b, Integral c, Storable c) => (Ptr c -> Ptr a -> IO VkResult) -> IO [b]
+data QueueFamilyProperties = QueueFamilyProperties VkQueueFamilyProperties
+                           deriving (Eq, Show)
+
+instance FromVk VkQueueFamilyProperties QueueFamilyProperties where
+  fromVk = return . QueueFamilyProperties
+
+class Checkable a where
+  check :: a -> IO ()
+
+instance Checkable () where
+  check = return
+
+instance Checkable VkResult where
+  check VK_SUCCESS = return ()
+  check a = error $ show a
+
+wrapCountArray :: (Storable a, FromVk a b, Integral c, Storable c, Checkable d) => (Ptr c -> Ptr a -> IO d) -> IO [b]
 wrapCountArray f =
   with 0 (\pcount -> do
              f pcount nullPtr >>= check
@@ -155,9 +177,8 @@ deviceExtensionProperties = wrapCountArray $ vkEnumerateInstanceExtensionPropert
 physicalDevices :: Instance -> IO [PhysicalDevice]
 physicalDevices (Instance i) = wrapCountArray $ vkEnumeratePhysicalDevices i
 
-check :: VkResult -> IO ()
-check VK_SUCCESS = return ()
-check a = error $ show a
+queueFamilyProperties :: PhysicalDevice -> IO [QueueFamilyProperties]
+queueFamilyProperties (PhysicalDevice h) = wrapCountArray $ vkGetPhysicalDeviceQueueFamilyProperties h
 
 createSurface :: Window -> Instance -> IO Surface
 createSurface (Window w) (Instance i) =
