@@ -6,13 +6,17 @@
 
 module Lib where
 
+import Control.Monad
 import Data.Bits
 import Data.Vector.Storable.Sized
+import Data.Word
 import Foreign.C.String
 import Foreign.Marshal
 import Foreign.Ptr
 import Foreign.Storable
 import Graphics.Vulkan
+import SDL.Internal.Types (Window(Window))
+import SDL.Video.Vulkan
 
 class FromVk a b | a -> b where
   fromVk :: a -> IO b
@@ -34,6 +38,10 @@ type LayerName = String
 type ExtensionName = String
 data Version = Version Int Int Int
 
+instance WithVk Version Word32 where
+  withVk (Version a b c) f = f v
+    where v = vkMakeVersion (fromIntegral a) (fromIntegral b) (fromIntegral c)
+
 data ApplicationInfo = ApplicationInfo { applicationName :: String
                                        , applicationVersion :: Version
                                        , engineName :: String
@@ -48,27 +56,35 @@ data InstanceCreateInfo = InstanceCreateInfo { applicationInfo :: ApplicationInf
 
 instance WithVk ApplicationInfo VkApplicationInfo where
   withVk a f =
-    withCString (applicationName a)
-    (\namePtr ->
-      f $ VkApplicationInfo VK_STRUCTURE_TYPE_APPLICATION_INFO
-      nullPtr namePtr 1 namePtr 0 (vkMakeVersion 1 0 3)
-    )
+    (wrapString (applicationName a) $
+     wrapValue (applicationVersion a) $
+     wrapString (engineName a) $
+     wrapValue (engineVersion a) $
+     wrapValue (apiVersion a)
+     f)
+    (VkApplicationInfo VK_STRUCTURE_TYPE_APPLICATION_INFO nullPtr)
 
 instance WithVk InstanceCreateInfo VkInstanceCreateInfo where
-  withVk a f = wrapInPtr (applicationInfo a)
-    (wrapArray (enabledLayers a)
-    (wrapArray (enabledExtensions a) f))
+  withVk a f =
+    (wrapInPtr (applicationInfo a) $
+     wrapArray (enabledLayers a) $
+     wrapArray (enabledExtensions a)
+     f)
     (VkInstanceCreateInfo VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO nullPtr (VkInstanceCreateFlags zeroBits))
-
--- instance WithVk InstanceCreateInfo VkInstanceCreateInfo where
---   withVk a f = wrapInPtr (applicationInfo a) (\g -> f $ g 0 nullPtr 0 nullPtr) $
---     VkInstanceCreateInfo VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO nullPtr (VkInstanceCreateFlags zeroBits)
 
 data Instance = Instance VkInstance
               deriving (Eq, Ord, Show)
 
 instance FromVk VkInstance Instance where
   fromVk = return . Instance
+
+data Surface = Surface VkSurfaceKHR
+              deriving (Eq)
+
+instance Show Surface where show (Surface (VkSurfaceKHR w)) = "Surface " ++ show w
+
+instance FromVk VkSurfaceKHR Surface where
+  fromVk = return . Surface
 
 data Extension = Extension { extensionName :: ExtensionName
                            , extensionVersion :: Int
@@ -82,6 +98,12 @@ instance FromVk VkExtensionProperties Extension where
                            n <- peekCString pname
                            return $ Extension n (fromIntegral version)
                        )
+
+data PhysicalDevice = PhysicalDevice VkPhysicalDevice
+                    deriving (Eq, Ord, Show)
+
+instance FromVk VkPhysicalDevice PhysicalDevice where
+  fromVk = return . PhysicalDevice
 
 wrapCountArray :: (Storable a, FromVk a b, Integral c, Storable c) => (Ptr c -> Ptr a -> IO VkResult) -> IO [b]
 wrapCountArray f =
@@ -99,11 +121,17 @@ wrapCountArray f =
 wrapString :: String -> (c -> IO d) -> (CString -> c) -> IO d
 wrapString a g f = withCString a (g . f)
 
+wrapConst :: a -> (c -> IO d) -> (a -> c) -> IO d
+wrapConst a g f = (g . f) a
+
+wrapValue :: (WithVk a b) => a -> (c -> IO d) -> (b -> c) -> IO d
+wrapValue a g f = withVk a (g . f)
+
 wrapInPtr :: (WithVk a b, Storable b) => a -> (c -> IO d) -> (Ptr b -> c) -> IO d
-wrapInPtr a g f = withVk a (\x -> with x (g . f))
+wrapInPtr a g f = withVk a (`with` (g . f))
 
 wrapArray :: (Num l, WithVk a b, Storable b) => [a] -> (c -> IO d) -> (l -> Ptr b -> c) -> IO d
-wrapArray a g f = withList a (\x -> withArrayLen x (\l p -> g $ f (fromIntegral l) p))
+wrapArray a g f = withList a (`withArrayLen` (\l p -> g $ f (fromIntegral l) p))
 
 wrapOutPtr :: (Storable a, FromVk a b) => (c -> IO VkResult) -> (Ptr a -> c) -> IO b
 wrapOutPtr g f =
@@ -115,11 +143,25 @@ wrapOutPtr g f =
          )
 
 createInstance :: InstanceCreateInfo -> IO Instance
-createInstance a = wrapInPtr a (wrapOutPtr id . ($ nullPtr)) vkCreateInstance
+createInstance a =
+  (wrapInPtr a $
+   wrapConst nullPtr $
+   wrapOutPtr id
+  ) vkCreateInstance
 
 deviceExtensionProperties :: IO [Extension]
 deviceExtensionProperties = wrapCountArray $ vkEnumerateInstanceExtensionProperties nullPtr
 
+physicalDevices :: Instance -> IO [PhysicalDevice]
+physicalDevices (Instance i) = wrapCountArray $ vkEnumeratePhysicalDevices i
+
 check :: VkResult -> IO ()
 check VK_SUCCESS = return ()
 check a = error $ show a
+
+createSurface :: Window -> Instance -> IO Surface
+createSurface (Window w) (Instance i) =
+  alloca (\ps -> do
+             r <- createSurfaceFFI w i ps
+             unless r $ error "SDL_CreateVulkanSurface failed"
+             Surface <$> peek ps)

@@ -39,6 +39,7 @@ library
         -fno-warn-unused-do-bind
         -fno-warn-name-shadowing
     extra-libraries:
+        vulkan
         SDL_vulkan
     extra-lib-dirs:
         /home/david/git/SDL_vulkan/build/src

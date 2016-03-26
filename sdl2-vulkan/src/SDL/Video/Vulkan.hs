@@ -1,5 +1,6 @@
 module SDL.Video.Vulkan
        ( instanceExtensions
+       , createSurfaceFFI
        )
        where
 
@@ -8,18 +9,22 @@ import Foreign.C.Types
 import Foreign.Marshal
 import Foreign.Ptr
 import Foreign.Storable
+import Graphics.Vulkan
+import SDL.Raw.Types
 
-foreign import ccall "SDL_vulkan.h SDL_GetVulkanInstanceExtensions" getVulkanInstanceExtensionsFFI :: Ptr CUInt -> Ptr (Ptr CChar) -> IO Bool
+foreign import ccall "SDL_vulkan.h SDL_GetVulkanInstanceExtensions" getInstanceExtensionsFFI :: Ptr CUInt -> Ptr (Ptr CChar) -> IO Bool
 
 instanceExtensions :: IO [String]
 instanceExtensions =
     with 0 (\pcount -> do
-               getVulkanInstanceExtensionsFFI pcount nullPtr
+               getInstanceExtensionsFFI pcount nullPtr
 
                count <- fromIntegral <$> peek pcount
                allocaArray count (\pext -> do
-                                     getVulkanInstanceExtensionsFFI pcount pext
+                                     getInstanceExtensionsFFI pcount pext
                                      r <- peekArray count pext
                                      sequence $ peekCString <$> r
                                  )
            )
+
+foreign import ccall "SDL_vulkan.h SDL_CreateVulkanSurface" createSurfaceFFI :: Window -> VkInstance -> Ptr VkSurfaceKHR -> IO Bool

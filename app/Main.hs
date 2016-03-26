@@ -12,12 +12,14 @@ import SDL.Video.Vulkan
 main :: IO ()
 main = do
   initialize [InitVideo]
+  window <- createWindow "Vulkan Test" defaultWindow
   iext <- instanceExtensions
   let
     app = ApplicationInfo "vulkan-test" (Version 0 0 0) "none" (Version 0 0 0) (Version 1 0 3)
     ici = InstanceCreateInfo app [] iext
-  createInstance ici >>= print
-  window <- createWindow "Vulkan Test" defaultWindow
+  inst <- createInstance ici
+  surface <- createSurface window inst
+  physicalDevices inst >>= print
   showWindow window
   let loop = do
         e <- fmap eventPayload <$> pollEvents
