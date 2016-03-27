@@ -40,6 +40,9 @@ withList a f =
     member [] l = f l
     member (x:xs) l = withVk x (\y -> member xs (y:l))
 
+instance FromVk VkBool32 Bool where
+  fromVk = return . (\(VkBool32 b) -> b /= 0)
+
 type LayerName = String
 type ExtensionName = String
 data Version = Version Int Int Int
@@ -111,11 +114,37 @@ data PhysicalDevice = PhysicalDevice VkPhysicalDevice
 instance FromVk VkPhysicalDevice PhysicalDevice where
   fromVk = return . PhysicalDevice
 
-data QueueFamilyProperties = QueueFamilyProperties VkQueueFamilyProperties
-                           deriving (Eq, Show)
+data QueueFamily = QueueFamily PhysicalDevice Int
+                 deriving (Eq, Ord, Show)
+
+data QueueFlags = QueueFlags { queueGraphics :: Bool
+                             , queueCompute :: Bool
+                             , queueTransfer :: Bool
+                             , queueSparseBinding :: Bool
+                             }
+                deriving (Eq, Ord, Show, Read)
+
+hasFlag :: Bits a => a -> a -> Bool
+hasFlag a b = a .|. b /= zeroBits
+
+instance FromVk VkQueueFlags QueueFlags where
+  fromVk f =
+    return $ QueueFlags
+      (f `hasFlag` VK_QUEUE_GRAPHICS_BIT)
+      (f `hasFlag` VK_QUEUE_COMPUTE_BIT)
+      (f `hasFlag` VK_QUEUE_TRANSFER_BIT)
+      (f `hasFlag` VK_QUEUE_SPARSE_BINDING_BIT)
+
+data QueueFamilyProperties = QueueFamilyProperties { queueFamily :: QueueFamily
+                                                   , queueFlags :: QueueFlags
+                                                   , queueCount :: Int
+                                                   }
+                           deriving (Eq, Ord, Show)
 
 instance FromVk VkQueueFamilyProperties QueueFamilyProperties where
-  fromVk = return . QueueFamilyProperties
+  fromVk (VkQueueFamilyProperties qf qc _ _) = do
+    flags <- fromVk qf
+    return $ QueueFamilyProperties undefined flags (fromIntegral qc)
 
 class Checkable a where
   check :: a -> IO ()
@@ -178,7 +207,9 @@ physicalDevices :: Instance -> IO [PhysicalDevice]
 physicalDevices (Instance i) = wrapCountArray $ vkEnumeratePhysicalDevices i
 
 queueFamilyProperties :: PhysicalDevice -> IO [QueueFamilyProperties]
-queueFamilyProperties (PhysicalDevice h) = wrapCountArray $ vkGetPhysicalDeviceQueueFamilyProperties h
+queueFamilyProperties d@(PhysicalDevice h) =
+  zipWith setFamily [0..] <$> wrapCountArray (vkGetPhysicalDeviceQueueFamilyProperties h)
+  where setFamily a b = b { queueFamily = QueueFamily d a }
 
 createSurface :: Window -> Instance -> IO Surface
 createSurface (Window w) (Instance i) =
@@ -186,3 +217,8 @@ createSurface (Window w) (Instance i) =
              r <- createSurfaceFFI w i ps
              unless r $ error "SDL_CreateVulkanSurface failed"
              Surface <$> peek ps)
+
+queueFamilySupportsPresent :: QueueFamily -> Surface -> IO Bool
+queueFamilySupportsPresent (QueueFamily (PhysicalDevice d) qi) (Surface s) =
+  wrapOutPtr id $
+  vkGetPhysicalDeviceSurfaceSupportKHR d (fromIntegral qi) s
