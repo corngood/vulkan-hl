@@ -8,7 +8,7 @@ import Graphics.Vulkan.HL
 import SDL hiding (Surface)
 import SDL.Video.Vulkan
 
-findAndCreateDevice :: Instance -> Surface -> IO (Device, Queue, CommandPool)
+findAndCreateDevice :: Instance -> Surface -> IO (PhysicalDevice, QueueFamily, Device, Queue, CommandPool)
 findAndCreateDevice inst surface = do
   m <- findDevice =<< physicalDevices inst
   case m of
@@ -16,7 +16,7 @@ findAndCreateDevice inst surface = do
       d <- createDevice pd $ DeviceCreateInfo [QueueCreateInfo qf 1] [] ["VK_KHR_swapchain"]
       q <- getQueue d qf 0
       cp <- createCommandPool d $ CommandPoolCreateInfo qf
-      return (d, q, cp)
+      return (pd, qf, d, q, cp)
     Nothing -> error "No Device"
   where
     findDevice [] = return Nothing
@@ -42,7 +42,8 @@ run window = do
     ici = InstanceCreateInfo app [] iext
   inst <- createInstance ici
   surface <- createSurface window inst
-  (device, queue, commandPool) <- findAndCreateDevice inst surface
+  (physicalDevice, _, device, queue, commandPool) <- findAndCreateDevice inst surface
+  surfaceFormats physicalDevice surface >>= print
   print (device, queue, commandPool)
   showWindow window
   let loop = do

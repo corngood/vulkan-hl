@@ -214,3 +214,14 @@ createCommandPool (Device d) ci =
   (wrapConst nullPtr $
    wrapOutPtr id)
   $ vkCreateCommandPool d
+
+data SurfaceFormat = SurfaceFormat VkSurfaceFormatKHR
+                   deriving (Eq, Ord, Show)
+
+instance FromVk SurfaceFormat VkSurfaceFormatKHR where
+  fromVk = return . SurfaceFormat
+
+surfaceFormats :: PhysicalDevice -> Surface -> IO [SurfaceFormat]
+surfaceFormats (PhysicalDevice pd) (Surface s) =
+  wrapCountArray $ vkGetPhysicalDeviceSurfaceFormatsKHR pd s
+
