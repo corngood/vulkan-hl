@@ -15,7 +15,10 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Lib
+  exposed-modules:     Graphics.Vulkan.HL
+                     , Graphics.Vulkan.HL.Core
+  other-modules:       Graphics.Vulkan.HL.Internal.Marshal
+                     , Graphics.Vulkan.HL.Internal.Orphan
   build-depends:       base >= 4.7 && < 5
                      , vector >= 0.11.0.0
                      , vector-sized >= 0.1.0.0

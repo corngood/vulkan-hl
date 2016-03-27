@@ -1,5 +1,5 @@
 module SDL.Video.Vulkan
-       ( instanceExtensions
+       ( requiredInstanceExtensions
        , createSurfaceFFI
        )
        where
@@ -14,8 +14,8 @@ import SDL.Raw.Types
 
 foreign import ccall "SDL_vulkan.h SDL_GetVulkanInstanceExtensions" getInstanceExtensionsFFI :: Ptr CUInt -> Ptr (Ptr CChar) -> IO Bool
 
-instanceExtensions :: IO [String]
-instanceExtensions =
+requiredInstanceExtensions :: IO [String]
+requiredInstanceExtensions =
     with 0 (\pcount -> do
                getInstanceExtensionsFFI pcount nullPtr
 
