@@ -1,5 +1,6 @@
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
+{-# language TemplateHaskell #-}
 {-# language TypeSynonymInstances #-}
 
 module Graphics.Vulkan.HL.Core where
@@ -14,6 +15,7 @@ import Foreign.Ptr
 import Foreign.Storable
 import Graphics.Vulkan
 import Graphics.Vulkan.HL.Internal.Marshal
+import Graphics.Vulkan.HL.Internal.TH
 import SDL.Internal.Types (Window(Window))
 import SDL.Video.Vulkan
 
@@ -224,4 +226,6 @@ instance FromVk SurfaceFormat VkSurfaceFormatKHR where
 surfaceFormats :: PhysicalDevice -> Surface -> IO [SurfaceFormat]
 surfaceFormats (PhysicalDevice pd) (Surface s) =
   wrapCountArray $ vkGetPhysicalDeviceSurfaceFormatsKHR pd s
+
+$(formats 'VkFormat)
 

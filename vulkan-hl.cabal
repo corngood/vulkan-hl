@@ -20,11 +20,12 @@ library
   other-modules:       Graphics.Vulkan.HL.Internal.Marshal
                      , Graphics.Vulkan.HL.Internal.Orphan
   build-depends:       base >= 4.7 && < 5
+                     , sdl2 >= 2.1.1
+                     , sdl2-vulkan >= 0.1
+                     , template-haskell >= 2.11.0.0
                      , vector >= 0.11.0.0
                      , vector-sized >= 0.1.0.0
                      , vulkan
-                     , sdl2 >= 2.1.1
-                     , sdl2-vulkan >= 0.1
   default-language:    Haskell2010
 
 executable vulkan-hl-exe
