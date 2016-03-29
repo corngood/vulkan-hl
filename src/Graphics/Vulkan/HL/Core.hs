@@ -226,6 +226,3 @@ instance FromVk SurfaceFormat VkSurfaceFormatKHR where
 surfaceFormats :: PhysicalDevice -> Surface -> IO [SurfaceFormat]
 surfaceFormats (PhysicalDevice pd) (Surface s) =
   wrapCountArray $ vkGetPhysicalDeviceSurfaceFormatsKHR pd s
-
-$(formats 'VkFormat)
-
