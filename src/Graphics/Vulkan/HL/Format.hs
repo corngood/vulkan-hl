@@ -4,6 +4,7 @@
 module Graphics.Vulkan.HL.Format where
 
 import Graphics.Vulkan.Core
+import Graphics.Vulkan.KHR.Surface
 import Graphics.Vulkan.HL.Internal.TH
 
 $(mkEnum "Format"
@@ -193,3 +194,7 @@ $(mkEnum "Format"
      , "ASTC_12x12_UNORM_BLOCK"
      , "ASTC_12x12_SRGB_BLOCK"
      ])
+
+-- $(mkEnum "ColorSpace"
+--      [ "SRGB_NONLINEAR"
+--      ])

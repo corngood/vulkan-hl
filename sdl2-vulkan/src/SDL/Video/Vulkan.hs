@@ -27,4 +27,4 @@ requiredInstanceExtensions =
                                  )
            )
 
-foreign import ccall "SDL_vulkan.h SDL_CreateVulkanSurface" createSurfaceFFI :: Window -> VkInstance -> Ptr VkSurfaceKHR -> IO Bool
+foreign import ccall "SDL_vulkan.h SDL_CreateVulkanSurface" createSurfaceFFI :: Window -> Instance -> Ptr SurfaceKHR -> IO Bool

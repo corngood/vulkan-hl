@@ -9,7 +9,7 @@ mkEnum :: String -> [String] -> DecsQ
 mkEnum name enums = do
   em <- mapM enumMap enums
   let (_, cons) = unzip em
-  Just targetType <- lookupTypeName $ "Vk" ++ name
+  targetType <- check lookupTypeName $ "Vk" ++ name
   return
     [ DataD [] typeName [] Nothing (toCons <$> cons) (ConT <$> [''Eq, ''Ord, ''Show, ''Read])
     , SigD marshal (AppT (AppT ArrowT (ConT typeName)) (ConT targetType))
@@ -26,5 +26,10 @@ mkEnum name enums = do
     marshalClause (t, c) = Clause [ConP c []] (NormalB (ConE t)) []
     unmarhsalClause (t, c) = marshalClause (c, t)
     enumMap enum = do
-      Just target <- lookupValueName $ targetPrefix ++ enum
+      target <- check lookupValueName $ targetPrefix ++ enum
       return (target, mkName $ filter (/= '_') enum)
+    check l n = do
+      tn <- l n
+      case tn of
+        Just tn' -> return tn'
+        Nothing -> error $ "Unable to find: " ++ n

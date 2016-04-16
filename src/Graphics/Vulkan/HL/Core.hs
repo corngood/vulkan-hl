@@ -15,7 +15,7 @@ import Foreign.Ptr
 import Foreign.Storable
 import Graphics.Vulkan
 import Graphics.Vulkan.HL.Internal.Marshal
-import Graphics.Vulkan.HL.Internal.TH
+
 import SDL.Internal.Types (Window(Window))
 import SDL.Video.Vulkan
 
@@ -37,10 +37,10 @@ data ApplicationInfo = ApplicationInfo { applicationName :: String
 instance WithVk ApplicationInfo VkApplicationInfo where
   withVk a f =
     (wrapString (applicationName a) $
-     wrapValue (applicationVersion a) $
+     wrapValue (Graphics.Vulkan.HL.Core.applicationVersion a) $
      wrapString (engineName a) $
-     wrapValue (engineVersion a) $
-     wrapValue (apiVersion a)
+     wrapValue (Graphics.Vulkan.HL.Core.engineVersion a) $
+     wrapValue (Graphics.Vulkan.HL.Core.apiVersion a)
      f)
     (VkApplicationInfo VK_STRUCTURE_TYPE_APPLICATION_INFO nullPtr)
 
@@ -57,16 +57,16 @@ instance WithVk InstanceCreateInfo VkInstanceCreateInfo where
      f)
     (VkInstanceCreateInfo VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO nullPtr (VkInstanceCreateFlags zeroBits))
 
-data Instance = Instance VkInstance
+data Instance = Instance Graphics.Vulkan.Instance
               deriving (Eq, Ord, Show)
 
-instance FromVk Instance VkInstance where
+instance FromVk Graphics.Vulkan.HL.Core.Instance Graphics.Vulkan.Instance where
   fromVk = return . Instance
 
-data Surface = Surface VkSurfaceKHR
+data Surface = Surface Graphics.Vulkan.SurfaceKHR
               deriving (Eq, Show)
 
-instance FromVk Surface VkSurfaceKHR where
+instance FromVk Surface Graphics.Vulkan.SurfaceKHR where
   fromVk = return . Surface
 
 data Extension = Extension { extensionName :: ExtensionName
@@ -82,13 +82,13 @@ instance FromVk Extension VkExtensionProperties where
                            return $ Extension n (fromIntegral version)
                        )
 
-data PhysicalDevice = PhysicalDevice VkPhysicalDevice
+data PhysicalDevice = PhysicalDevice Graphics.Vulkan.PhysicalDevice
                     deriving (Eq, Ord, Show)
 
-instance FromVk PhysicalDevice VkPhysicalDevice where
+instance FromVk Graphics.Vulkan.HL.Core.PhysicalDevice Graphics.Vulkan.PhysicalDevice where
   fromVk = return . PhysicalDevice
 
-data QueueFamily = QueueFamily PhysicalDevice Int
+data QueueFamily = QueueFamily Graphics.Vulkan.HL.Core.PhysicalDevice Int
                  deriving (Eq, Ord, Show)
 
 data QueueFlags = QueueFlags { queueGraphics :: Bool
@@ -120,7 +120,7 @@ instance FromVk QueueFamilyProperties VkQueueFamilyProperties where
     flags <- fromVk qf
     return $ QueueFamilyProperties undefined flags (fromIntegral qc)
 
-createInstance :: InstanceCreateInfo -> IO Instance
+createInstance :: InstanceCreateInfo -> IO Graphics.Vulkan.HL.Core.Instance
 createInstance a =
   (wrapInPtr a $
    wrapConst nullPtr $
@@ -130,15 +130,15 @@ createInstance a =
 deviceExtensionProperties :: IO [Extension]
 deviceExtensionProperties = wrapCountArray $ vkEnumerateInstanceExtensionProperties nullPtr
 
-physicalDevices :: Instance -> IO [PhysicalDevice]
+physicalDevices :: Graphics.Vulkan.HL.Core.Instance -> IO [Graphics.Vulkan.HL.Core.PhysicalDevice]
 physicalDevices (Instance i) = wrapCountArray $ vkEnumeratePhysicalDevices i
 
-queueFamilyProperties :: PhysicalDevice -> IO [QueueFamilyProperties]
+queueFamilyProperties :: Graphics.Vulkan.HL.Core.PhysicalDevice -> IO [QueueFamilyProperties]
 queueFamilyProperties d@(PhysicalDevice h) =
   zipWith setFamily [0..] <$> wrapCountArray (vkGetPhysicalDeviceQueueFamilyProperties h)
   where setFamily a b = b { queueFamily = QueueFamily d a } :: QueueFamilyProperties
 
-createSurface :: Window -> Instance -> IO Surface
+createSurface :: Window -> Graphics.Vulkan.HL.Core.Instance -> IO Surface
 createSurface (Window w) (Instance i) =
   alloca (\ps -> do
              r <- createSurfaceFFI w i ps
@@ -172,26 +172,26 @@ instance WithVk DeviceCreateInfo VkDeviceCreateInfo where
      f . ($ nullPtr))
     (VkDeviceCreateInfo VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO nullPtr (VkDeviceCreateFlags zeroBits))
 
-data Device = Device VkDevice
+data Device = Device Graphics.Vulkan.Device
             deriving (Eq, Ord, Show)
 
-instance FromVk Device VkDevice where
+instance FromVk Graphics.Vulkan.HL.Core.Device Graphics.Vulkan.Device where
   fromVk = return . Device
 
-createDevice :: PhysicalDevice -> DeviceCreateInfo -> IO Device
+createDevice :: Graphics.Vulkan.HL.Core.PhysicalDevice -> DeviceCreateInfo -> IO Graphics.Vulkan.HL.Core.Device
 createDevice (PhysicalDevice pd) a =
   wrapInPtr a
   (wrapConst nullPtr $
    wrapOutPtr id
   ) $ vkCreateDevice pd
 
-data Queue = Queue VkQueue
+data Queue = Queue Graphics.Vulkan.Queue
            deriving (Eq, Ord, Show)
 
-instance FromVk Queue VkQueue where
+instance FromVk Graphics.Vulkan.HL.Core.Queue Graphics.Vulkan.Queue where
   fromVk = return . Queue
 
-getQueue :: Device -> QueueFamily -> Int -> IO Queue
+getQueue :: Graphics.Vulkan.HL.Core.Device -> QueueFamily -> Int -> IO Graphics.Vulkan.HL.Core.Queue
 getQueue (Device d) (QueueFamily _ f) i =
   wrapOutPtr id
   $ vkGetDeviceQueue d (fromIntegral f) (fromIntegral i)
@@ -202,15 +202,15 @@ data CommandPoolCreateInfo = CommandPoolCreateInfo { comamndPoolQueueFamily :: Q
 instance WithVk CommandPoolCreateInfo VkCommandPoolCreateInfo where
   withVk (CommandPoolCreateInfo (QueueFamily _ qfi)) f =
     f $ VkCommandPoolCreateInfo VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO nullPtr
-    (VkCommandPoolCreateFlagBits zeroBits) (fromIntegral qfi)
+    zeroBits (fromIntegral qfi)
 
-data CommandPool = CommandPool VkCommandPool
+data CommandPool = CommandPool Graphics.Vulkan.CommandPool
                  deriving (Eq, Ord, Show)
 
-instance FromVk CommandPool VkCommandPool where
-  fromVk = return . CommandPool
+instance FromVk Graphics.Vulkan.HL.Core.CommandPool Graphics.Vulkan.CommandPool where
+  fromVk = return . Graphics.Vulkan.HL.Core.CommandPool
 
-createCommandPool :: Device -> CommandPoolCreateInfo -> IO CommandPool
+createCommandPool :: Graphics.Vulkan.HL.Core.Device -> CommandPoolCreateInfo -> IO Graphics.Vulkan.HL.Core.CommandPool
 createCommandPool (Device d) ci =
   wrapInPtr ci
   (wrapConst nullPtr $
@@ -223,6 +223,6 @@ data SurfaceFormat = SurfaceFormat VkSurfaceFormatKHR
 instance FromVk SurfaceFormat VkSurfaceFormatKHR where
   fromVk = return . SurfaceFormat
 
-surfaceFormats :: PhysicalDevice -> Surface -> IO [SurfaceFormat]
+surfaceFormats :: Graphics.Vulkan.HL.Core.PhysicalDevice -> Surface -> IO [SurfaceFormat]
 surfaceFormats (PhysicalDevice pd) (Surface s) =
   wrapCountArray $ vkGetPhysicalDeviceSurfaceFormatsKHR pd s
