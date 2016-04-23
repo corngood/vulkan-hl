@@ -127,6 +127,9 @@ createInstance a =
    wrapOutPtr id
   ) vkCreateInstance
 
+destroyInstance :: Graphics.Vulkan.HL.Core.Instance -> IO ()
+destroyInstance (Instance i) = vkDestroyInstance i nullPtr
+
 deviceExtensionProperties :: IO [Extension]
 deviceExtensionProperties = wrapCountArray $ vkEnumerateInstanceExtensionProperties nullPtr
 
