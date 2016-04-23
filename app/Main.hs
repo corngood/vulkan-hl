@@ -52,6 +52,7 @@ run window = do
   loop
 
 main :: IO ()
-main =
+main = do
+  HintFramebufferAcceleration $= Disable3D
   bracket (initialize [InitVideo]) (const quit)
     (\() -> bracket (createWindow "Vulkan Test" defaultWindow) destroyWindow run)
