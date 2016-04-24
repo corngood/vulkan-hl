@@ -17,7 +17,6 @@ library
   hs-source-dirs:      src
   exposed-modules:     Graphics.Vulkan.HL
                      , Graphics.Vulkan.HL.Core
-                     , Graphics.Vulkan.HL.Format
   other-modules:       Graphics.Vulkan.HL.Internal.Marshal
                      , Graphics.Vulkan.HL.Internal.Orphan
                      , Graphics.Vulkan.HL.Internal.TH

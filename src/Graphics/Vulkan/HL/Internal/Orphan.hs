@@ -5,12 +5,8 @@ module Graphics.Vulkan.HL.Internal.Orphan where
 
 import Graphics.Vulkan
 
-deriving instance Ord VkColorSpaceKHR
-deriving instance Ord CommandPool
-deriving instance Ord VkFormat
-deriving instance Ord VkSurfaceFormatKHR
 deriving instance Show CommandPool
-deriving instance Show VkExtent3D
-deriving instance Show VkQueueFamilyProperties
-deriving instance Show VkSurfaceFormatKHR
-deriving instance Show SurfaceKHR
+deriving instance Show Extent3D
+deriving instance Show QueueFamilyProperties
+deriving instance Show SurfaceFormat
+deriving instance Show Surface

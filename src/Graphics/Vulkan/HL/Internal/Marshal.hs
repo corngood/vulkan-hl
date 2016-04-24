@@ -19,15 +19,15 @@ class Checkable a where
 instance Checkable () where
   check = return
 
-instance Checkable VkResult where
-  check VK_SUCCESS = return ()
+instance Checkable Result where
+  check Success = return ()
   check a = error $ show a
 
 class FromVk a b | a -> b where
   fromVk :: b -> IO a
 
-instance FromVk Bool VkBool32 where
-  fromVk = return . (\(VkBool32 b) -> b /= 0)
+instance FromVk Bool Bool32 where
+  fromVk = return . (\(Bool32 b) -> b /= 0)
 
 class WithVk a b | a -> b where
   withVk :: a -> (b -> IO c) -> IO c
