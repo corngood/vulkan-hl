@@ -34,12 +34,13 @@ executable vulkan-hl-exe
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
+                     , linear >= 1.20.5
+                     , sdl2 >= 2.1.1
+                     , sdl2-vulkan >= 0.1
                      , vector >= 0.11.0.0
                      , vector-sized >= 0.1.0.0
                      , vulkan
                      , vulkan-hl
-                     , sdl2 >= 2.1.1
-                     , sdl2-vulkan >= 0.1
   default-language:    Haskell2010
 
 test-suite vulkan-hl-test

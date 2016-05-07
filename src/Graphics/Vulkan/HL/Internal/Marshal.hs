@@ -5,6 +5,7 @@
 
 module Graphics.Vulkan.HL.Internal.Marshal where
 
+import Data.Word
 import Foreign.C
 import Foreign.Marshal
 import Foreign.Ptr
@@ -29,11 +30,26 @@ class FromVk a b | a -> b where
 instance FromVk Bool Bool32 where
   fromVk = return . (\(Bool32 b) -> b /= 0)
 
+instance FromVk SurfaceFormat SurfaceFormat where
+  fromVk = return
+
+instance FromVk SurfaceCapabilities SurfaceCapabilities where
+  fromVk = return
+
 class WithVk a b | a -> b where
   withVk :: a -> (b -> IO c) -> IO c
 
 instance WithVk String CString where
   withVk = withCString
+
+instance WithVk CommandBufferAllocateInfo CommandBufferAllocateInfo where
+  withVk a f = f a
+
+instance WithVk Int Word32 where
+  withVk a f = f (fromIntegral a)
+
+instance WithVk Bool Bool32 where
+  withVk a f = f (Bool32 $ if a then 1 else 0)
 
 withList :: WithVk a b => [a] -> ([b] -> IO c) -> IO c
 withList a f =
@@ -67,9 +83,6 @@ wrapValue a g f = withVk a (g . f)
 wrapInPtr :: (WithVk a b, Storable b) => a -> (c -> IO d) -> (Ptr b -> c) -> IO d
 wrapInPtr a g f = withVk a (`with` (g . f))
 
-wrapArray :: (Num l, WithVk a b, Storable b) => [a] -> (c -> IO d) -> (l -> Ptr b -> c) -> IO d
-wrapArray a g f = withList a (`withArrayLen` (\l p -> g $ f (fromIntegral l) p))
-
 wrapOutPtr :: (Storable b, FromVk a b, Checkable d) => (c -> IO d) -> (Ptr b -> c) -> IO a
 wrapOutPtr g f =
   alloca (\ptr -> do
@@ -78,3 +91,15 @@ wrapOutPtr g f =
            a <- peek ptr
            fromVk a
          )
+
+wrapInArray :: (Num l, WithVk a b, Storable b) => [a] -> (c -> IO d) -> (l -> Ptr b -> c) -> IO d
+wrapInArray a g f = withList a (`withArrayLen` (\l p -> g $ f (fromIntegral l) p))
+
+wrapOutArray :: (Storable b, FromVk a b, Checkable d) => Int -> (c -> IO d) -> (Ptr b -> c) -> IO [a]
+wrapOutArray n g f =
+  allocaArray n (\ptr -> do
+                    d <- g $ f ptr
+                    check d
+                    a <- peekArray n ptr
+                    mapM fromVk a
+                )
