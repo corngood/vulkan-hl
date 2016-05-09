@@ -1,22 +1,23 @@
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
-{-# language TemplateHaskell #-}
 {-# language TypeSynonymInstances #-}
+{-# language DuplicateRecordFields #-}
 
 module Graphics.Vulkan.HL.Core where
 
 import Control.Monad
 import Data.Bits
-import Data.Vector.Storable.Sized hiding (head)
+import Data.Int
+import Data.Vector.Storable.Sized hiding (head, length)
+import Data.Void
 import Data.Word
-import Foreign.C.String
+import Foreign.C
 import Foreign.Marshal
 import Foreign.Ptr
 import Foreign.Storable
 import qualified Graphics.Vulkan as Vk
 import qualified Graphics.Vulkan.KHR.Surface as VkSu
 import Graphics.Vulkan.HL.Internal.Marshal
-
 import SDL.Internal.Types (Window(Window))
 import SDL.Video.Vulkan
 
@@ -58,21 +59,6 @@ instance WithVk InstanceCreateInfo Vk.InstanceCreateInfo where
      f)
     (Vk.InstanceCreateInfo Vk.StructureTypeInstanceCreateInfo nullPtr (Vk.InstanceCreateFlags zeroBits))
 
-data Instance = Instance Vk.Instance
-              deriving (Eq, Ord, Show)
-
-instance FromVk Instance Vk.Instance where
-  fromVk = return . Instance
-
-data Surface = Surface Vk.Surface
-              deriving (Eq, Show)
-
-instance WithVk Surface Vk.Surface where
-  withVk (Surface a) f = f a
-
-instance FromVk Surface Vk.Surface where
-  fromVk = return . Surface
-
 data Extension = Extension { extensionName :: ExtensionName
                            , extensionVersion :: Int
                            }
@@ -86,88 +72,50 @@ instance FromVk Extension Vk.ExtensionProperties where
                            return $ Extension n (fromIntegral version)
                        )
 
-data PhysicalDevice = PhysicalDevice Vk.PhysicalDevice
-                    deriving (Eq, Ord, Show)
-
-instance FromVk PhysicalDevice Vk.PhysicalDevice where
-  fromVk = return . PhysicalDevice
-
-data QueueFamily = QueueFamily PhysicalDevice Int
-                 deriving (Eq, Ord, Show)
-
-instance WithVk QueueFamily Word32 where
-  withVk (QueueFamily _ i) f = f (fromIntegral i)
-
-data QueueFlags = QueueFlags { queueGraphics :: Bool
-                             , queueCompute :: Bool
-                             , queueTransfer :: Bool
-                             , queueSparseBinding :: Bool
-                             }
-                deriving (Eq, Ord, Show, Read)
-
 hasFlag :: Bits a => a -> a -> Bool
 hasFlag a b = a .|. b /= zeroBits
 
-instance FromVk QueueFlags Vk.QueueFlags where
-  fromVk f =
-    return $ QueueFlags
-      (f `hasFlag` Vk.QueueGraphicsBit)
-      (f `hasFlag` Vk.QueueComputeBit)
-      (f `hasFlag` Vk.QueueTransferBit)
-      (f `hasFlag` Vk.QueueSparseBindingBit)
-
-data QueueFamilyProperties = QueueFamilyProperties { queueFamily :: QueueFamily
-                                                   , queueFlags :: QueueFlags
-                                                   , queueCount :: Int
-                                                   }
-                           deriving (Eq, Ord, Show)
-
-instance FromVk QueueFamilyProperties Vk.QueueFamilyProperties where
-  fromVk (Vk.QueueFamilyProperties qf qc _ _) = do
-    flags <- fromVk qf
-    return $ QueueFamilyProperties undefined flags (fromIntegral qc)
-
-createInstance :: InstanceCreateInfo -> IO Instance
+createInstance :: InstanceCreateInfo -> IO Vk.Instance
 createInstance a =
   (wrapInPtr a $
    wrapConst nullPtr $
    wrapOutPtr id
   ) Vk.createInstance
 
-destroyInstance :: Instance -> IO ()
-destroyInstance (Instance i) = Vk.destroyInstance i nullPtr
+destroyInstance :: Vk.Instance -> IO ()
+destroyInstance i = Vk.destroyInstance i nullPtr
 
 deviceExtensionProperties :: IO [Extension]
 deviceExtensionProperties = wrapCountArray $ Vk.enumerateInstanceExtensionProperties nullPtr
 
-physicalDevices :: Instance -> IO [PhysicalDevice]
-physicalDevices (Instance i) = wrapCountArray $ Vk.enumeratePhysicalDevices i
+physicalDevices :: Vk.Instance -> IO [Vk.PhysicalDevice]
+physicalDevices i = wrapCountArray $ Vk.enumeratePhysicalDevices i
 
-queueFamilyProperties :: PhysicalDevice -> IO [QueueFamilyProperties]
-queueFamilyProperties d@(PhysicalDevice h) =
-  zipWith setFamily [0..] <$> wrapCountArray (Vk.getPhysicalDeviceQueueFamilyProperties h)
-  where setFamily a b = b { queueFamily = QueueFamily d a } :: QueueFamilyProperties
+queueFamilyProperties :: Vk.PhysicalDevice -> IO [Vk.QueueFamilyProperties]
+queueFamilyProperties pd =
+  wrapCountArray (Vk.getPhysicalDeviceQueueFamilyProperties pd)
 
-createSurface :: Window -> Instance -> IO Surface
-createSurface (Window w) (Instance i) =
+createSurface :: Window -> Vk.Instance -> IO Vk.Surface
+createSurface (Window w) i =
   alloca (\ps -> do
              r <- createSurfaceFFI w i ps
              unless r $ error "SDL_CreateVulkanSurface failed"
-             Surface <$> peek ps)
+             peek ps)
 
-queueFamilySupportsPresent :: QueueFamily -> Surface -> IO Bool
-queueFamilySupportsPresent (QueueFamily (PhysicalDevice d) qi) (Surface s) =
+queueFamilySupportsPresent :: Vk.PhysicalDevice -> Int -> Vk.Surface -> IO Bool
+queueFamilySupportsPresent pd qi s =
   wrapOutPtr id $
-  Vk.getPhysicalDeviceSurfaceSupport d (fromIntegral qi) s
+  Vk.getPhysicalDeviceSurfaceSupport pd (fromIntegral qi) s
 
-data QueueCreateInfo = QueueCreateInfo { queueCreateFamily :: QueueFamily
-                                       , queueCreateCount :: Int
+data QueueCreateInfo = QueueCreateInfo { queueCreateFamily :: Int
+                                       , queuePriorities :: [Float]
                                        }
 
 instance WithVk QueueCreateInfo Vk.DeviceQueueCreateInfo where
-  withVk (QueueCreateInfo (QueueFamily _ i) c) f =
+  withVk (QueueCreateInfo i c) f =
+    wrapInArray c
     f $ Vk.DeviceQueueCreateInfo Vk.StructureTypeDeviceQueueCreateInfo nullPtr
-    (Vk.DeviceQueueCreateFlags zeroBits) (fromIntegral i) (fromIntegral c) nullPtr
+    (Vk.DeviceQueueCreateFlags zeroBits) (fromIntegral i)
 
 data DeviceCreateInfo = DeviceCreateInfo { deviceQueues :: [QueueCreateInfo]
                                          , deviceLayers :: [LayerName]
@@ -182,83 +130,59 @@ instance WithVk DeviceCreateInfo Vk.DeviceCreateInfo where
      f . ($ nullPtr))
     (Vk.DeviceCreateInfo Vk.StructureTypeDeviceCreateInfo nullPtr (Vk.DeviceCreateFlags zeroBits))
 
-data Device = Device Vk.Device
-            deriving (Eq, Ord, Show)
-
-instance FromVk Device Vk.Device where
-  fromVk = return . Device
-
-createDevice :: PhysicalDevice -> DeviceCreateInfo -> IO Device
-createDevice (PhysicalDevice pd) a =
+createDevice :: Vk.PhysicalDevice -> DeviceCreateInfo -> IO Vk.Device
+createDevice pd a =
   wrapInPtr a
   (wrapConst nullPtr $
    wrapOutPtr id
   ) $ Vk.createDevice pd
 
-data Queue = Queue Vk.Queue
-           deriving (Eq, Ord, Show)
-
-instance FromVk Queue Vk.Queue where
-  fromVk = return . Queue
-
-getQueue :: Device -> QueueFamily -> Int -> IO Queue
-getQueue (Device d) (QueueFamily _ f) i =
+getQueue :: Vk.Device -> Int -> Int -> IO Vk.Queue
+getQueue d f i =
   wrapOutPtr id
   $ Vk.getDeviceQueue d (fromIntegral f) (fromIntegral i)
 
-data CommandPoolCreateInfo = CommandPoolCreateInfo { comamndPoolQueueFamily :: QueueFamily
+data CommandPoolCreateInfo = CommandPoolCreateInfo { comamndPoolQueueFamily :: Int
                                                    }
 
 instance WithVk CommandPoolCreateInfo Vk.CommandPoolCreateInfo where
-  withVk (CommandPoolCreateInfo (QueueFamily _ qfi)) f =
+  withVk (CommandPoolCreateInfo qfi) f =
     f $ Vk.CommandPoolCreateInfo Vk.StructureTypeCommandPoolCreateInfo nullPtr
     zeroBits (fromIntegral qfi)
 
-data CommandPool = CommandPool Vk.CommandPool
-                 deriving (Eq, Ord, Show)
-
-instance FromVk CommandPool Vk.CommandPool where
-  fromVk = return . CommandPool
-
-createCommandPool :: Device -> CommandPoolCreateInfo -> IO CommandPool
-createCommandPool (Device d) ci =
+createCommandPool :: Vk.Device -> CommandPoolCreateInfo -> IO Vk.CommandPool
+createCommandPool d ci =
   wrapInPtr ci
   (wrapConst nullPtr $
    wrapOutPtr id)
   $ Vk.createCommandPool d
 
-surfaceFormats :: PhysicalDevice -> Surface -> IO [Vk.SurfaceFormat]
-surfaceFormats (PhysicalDevice pd) (Surface s) =
+surfaceFormats :: Vk.PhysicalDevice -> Vk.Surface -> IO [Vk.SurfaceFormat]
+surfaceFormats pd s =
   wrapCountArray $ Vk.getPhysicalDeviceSurfaceFormats pd s
 
-surfaceCapabilities :: PhysicalDevice -> Surface -> IO Vk.SurfaceCapabilities
-surfaceCapabilities (PhysicalDevice pd) (Surface s) =
+surfaceCapabilities :: Vk.PhysicalDevice -> Vk.Surface -> IO Vk.SurfaceCapabilities
+surfaceCapabilities pd s =
   wrapOutPtr id $ Vk.getPhysicalDeviceSurfaceCapabilities pd s
 
-data CommandBuffer = CommandBuffer Vk.CommandBuffer
-                 deriving (Eq, Ord, Show)
-
-instance FromVk CommandBuffer Vk.CommandBuffer where
-  fromVk = return . CommandBuffer
-
-allocateCommandBuffers :: Device -> CommandPool -> Vk.CommandBufferLevel -> Int -> IO [CommandBuffer]
-allocateCommandBuffers (Device d) (CommandPool cp) l n =
+allocateCommandBuffers :: Vk.Device -> Vk.CommandPool -> Vk.CommandBufferLevel -> Int -> IO [Vk.CommandBuffer]
+allocateCommandBuffers d cp l n =
   wrapInPtr (Vk.CommandBufferAllocateInfo Vk.StructureTypeCommandBufferAllocateInfo nullPtr cp l (fromIntegral n))
   (wrapOutArray n id)
   $ Vk.allocateCommandBuffers d
 
-allocateCommandBuffer :: Device -> CommandPool -> Vk.CommandBufferLevel -> IO CommandBuffer
+allocateCommandBuffer :: Vk.Device -> Vk.CommandPool -> Vk.CommandBufferLevel -> IO Vk.CommandBuffer
 allocateCommandBuffer d cp l = head <$> allocateCommandBuffers d cp l 1
 
 data SwapchainCreateInfo = SwapchainCreateInfo { flags :: Vk.SwapchainCreateFlags
-                                               , surface :: Surface
+                                               , surface :: Vk.Surface
                                                , minImageCount :: Int
                                                , imageFormat :: Vk.SurfaceFormat
                                                , imageExtent :: Vk.Extent2D
                                                , imageArrayLayers :: Int
                                                , imageUsage :: Vk.ImageUsageFlags
                                                , imageSharingMode :: Vk.SharingMode
-                                               , queueFamilyIndices :: [QueueFamily]
+                                               , queueFamilyIndices :: [Int]
                                                , preTransform :: Vk.SurfaceTransformFlags
                                                , compositeAlpha :: Vk.CompositeAlphaFlags
                                                , presentMode :: Vk.PresentMode
@@ -267,7 +191,7 @@ data SwapchainCreateInfo = SwapchainCreateInfo { flags :: Vk.SwapchainCreateFlag
 
 instance WithVk SwapchainCreateInfo Vk.SwapchainCreateInfo where
   withVk s f =
-    (wrapConst (flags s) $
+    (wrapConst (flags (s :: SwapchainCreateInfo)) $
      wrapValue (surface s) $
      wrapValue (minImageCount s) $
      wrapConst (VkSu.format $ imageFormat s) $
@@ -285,15 +209,118 @@ instance WithVk SwapchainCreateInfo Vk.SwapchainCreateInfo where
      f)
     (Vk.SwapchainCreateInfo (Vk.StructureType 1000001000) nullPtr)
 
-data Swapchain = Swapchain Vk.Swapchain
-               deriving (Eq, Ord, Show)
-
-instance FromVk Swapchain Vk.Swapchain where
-  fromVk = return . Swapchain
-
-createSwapchain :: Device -> SwapchainCreateInfo -> IO Swapchain
-createSwapchain (Device d) ci =
+createSwapchain :: Vk.Device -> SwapchainCreateInfo -> IO Vk.Swapchain
+createSwapchain d ci =
   wrapInPtr ci
   (wrapConst nullPtr $
    wrapOutPtr id)
   $ Vk.createSwapchain d
+
+swapchainImages :: Vk.Device -> Vk.Swapchain -> IO [Vk.Image]
+swapchainImages d s = wrapCountArray $ Vk.getSwapchainImages d s
+
+type FN_DebugReportCallback =
+  (Vk.DebugReportFlags ->
+     Vk.DebugReportObjectType ->
+       Word64 ->
+         CSize -> Int32 -> Ptr CChar -> Ptr CChar -> Ptr Void -> IO Vk.Bool32)
+
+type DebugReportCallbackFun =
+  (Vk.DebugReportFlags ->
+     Vk.DebugReportObjectType ->
+       Word64 ->
+         CSize -> Int32 -> String -> String -> IO Bool)
+
+foreign import ccall "wrapper" mkDebugReportCallback :: FN_DebugReportCallback -> IO Vk.PFN_vkDebugReportCallbackEXT
+
+data DebugReportCallback = DebugReportCallback Vk.DebugReportCallback Vk.PFN_vkDebugReportCallbackEXT
+                         deriving (Eq, Ord, Show)
+
+type FN_createDebugReportCallback =
+  Vk.Instance ->
+  Ptr Vk.DebugReportCallbackCreateInfo ->
+    Ptr Vk.AllocationCallbacks -> Ptr Vk.DebugReportCallback -> IO Vk.Result
+
+createDebugReportCallback :: Vk.Instance -> Vk.DebugReportFlags -> DebugReportCallbackFun -> IO DebugReportCallback
+createDebugReportCallback i flags cb = do
+  cbPtr <- mkDebugReportCallback wrappedCallback
+  let ci = Vk.DebugReportCallbackCreateInfo (Vk.StructureType 1000011000) nullPtr flags cbPtr nullPtr
+  drc <- (wrapInPtr (ci :: Vk.DebugReportCallbackCreateInfo) $
+          wrapConst nullPtr $
+          wrapOutPtr id)
+    $ Vk.createDebugReportCallback i
+  return $ DebugReportCallback drc cbPtr
+  where
+    wrappedCallback :: FN_DebugReportCallback
+    wrappedCallback f ot o l mc lp m _ = do
+      r <- join $ cb f ot o l mc <$> peekCString lp <*> peekCString m
+      return $ Vk.Bool32 $ if r then 1 else 0
+
+data ImageViewCreateInfo = ImageViewCreateInfo { flags :: Vk.ImageViewCreateFlags
+                                               , image :: Vk.Image
+                                               , viewType :: Vk.ImageViewType
+                                               , format :: Vk.Format
+                                               , components :: Vk.ComponentMapping
+                                               , subresourceRange :: Vk.ImageSubresourceRange
+                                               }
+
+instance WithVk ImageViewCreateInfo Vk.ImageViewCreateInfo where
+  withVk s f =
+    (wrapConst (flags (s :: ImageViewCreateInfo)) $
+     wrapConst (image s) $
+     wrapConst (viewType s) $
+     wrapConst (format s) $
+     wrapConst (components s) $
+     wrapConst (subresourceRange s)
+     f)
+    (Vk.ImageViewCreateInfo Vk.StructureTypeImageViewCreateInfo nullPtr)
+
+createImageView :: Vk.Device -> ImageViewCreateInfo -> IO Vk.ImageView
+createImageView d ci =
+  wrapInPtr ci
+  (wrapConst nullPtr $
+   wrapOutPtr id)
+  $ Vk.createImageView d
+
+data SubpassDescription = SubpassDescription { flags :: Vk.SubpassDescriptionFlags
+                                             , pipelineBindPoint :: Vk.PipelineBindPoint
+                                             , inputAttachments :: [Vk.AttachmentReference]
+                                             , colorAttachments :: [Vk.AttachmentReference]
+                                             -- , pResolveAttachments :: Maybe [AttachmentReference]
+                                             -- , depthStencilAttachment :: Vk.AttachmentReference
+                                             , preserveAttachments :: [Int]
+                                             }
+
+instance WithVk SubpassDescription Vk.SubpassDescription where
+  withVk s f =
+    (wrapConst (flags (s :: SubpassDescription)) $
+     wrapConst (pipelineBindPoint s) $
+     wrapInArray (inputAttachments s) $
+     wrapInArray (colorAttachments s) $
+     wrapConst nullPtr $ -- TODO: hook up resolve
+     wrapConst nullPtr $ -- TODO: hook up depth
+     wrapInArray (preserveAttachments s)
+     f)
+    (Vk.SubpassDescription)
+
+data RenderPassCreateInfo = RenderPassCreateInfo { flags :: Vk.RenderPassCreateFlags
+                                                 , attachments :: [Vk.AttachmentDescription]
+                                                 , subpasses :: [SubpassDescription]
+                                                 , dependencies :: [Vk.SubpassDependency]
+                                                 }
+
+instance WithVk RenderPassCreateInfo Vk.RenderPassCreateInfo where
+  withVk s f =
+    (wrapConst (flags (s :: RenderPassCreateInfo)) $
+     wrapInArray (attachments s) $
+     wrapInArray (subpasses s) $
+     wrapInArray (dependencies s)
+     f)
+    (Vk.RenderPassCreateInfo Vk.StructureTypeRenderPassCreateInfo nullPtr)
+
+createRenderPass :: Vk.Device -> RenderPassCreateInfo -> IO Vk.RenderPass
+createRenderPass d ci =
+  wrapInPtr ci
+  (wrapConst nullPtr $
+   wrapOutPtr id)
+  $ Vk.createRenderPass d

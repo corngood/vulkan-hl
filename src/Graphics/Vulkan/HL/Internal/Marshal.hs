@@ -36,6 +36,42 @@ instance FromVk SurfaceFormat SurfaceFormat where
 instance FromVk SurfaceCapabilities SurfaceCapabilities where
   fromVk = return
 
+instance FromVk Instance Instance where
+  fromVk = return
+
+instance FromVk PhysicalDevice PhysicalDevice where
+  fromVk = return
+
+instance FromVk QueueFamilyProperties QueueFamilyProperties where
+  fromVk = return
+
+instance FromVk Device Device where
+  fromVk = return
+
+instance FromVk CommandBuffer CommandBuffer where
+  fromVk = return
+
+instance FromVk Swapchain Swapchain where
+  fromVk = return
+
+instance FromVk Image Image where
+  fromVk = return
+
+instance FromVk Queue Queue where
+  fromVk = return
+
+instance FromVk CommandPool CommandPool where
+  fromVk = return
+
+instance FromVk ImageView ImageView where
+  fromVk = return
+
+instance FromVk RenderPass RenderPass where
+  fromVk = return
+
+instance FromVk DebugReportCallback DebugReportCallback where
+  fromVk = return
+
 class WithVk a b | a -> b where
   withVk :: a -> (b -> IO c) -> IO c
 
@@ -45,11 +81,29 @@ instance WithVk String CString where
 instance WithVk CommandBufferAllocateInfo CommandBufferAllocateInfo where
   withVk a f = f a
 
+instance WithVk Surface Surface where
+  withVk a f = f a
+
+instance WithVk AttachmentReference AttachmentReference where
+  withVk a f = f a
+
+instance WithVk AttachmentDescription AttachmentDescription where
+  withVk a f = f a
+
+instance WithVk SubpassDependency SubpassDependency where
+  withVk a f = f a
+
+instance WithVk DebugReportCallbackCreateInfo DebugReportCallbackCreateInfo where
+  withVk a f = f a
+
 instance WithVk Int Word32 where
   withVk a f = f (fromIntegral a)
 
 instance WithVk Bool Bool32 where
   withVk a f = f (Bool32 $ if a then 1 else 0)
+
+instance WithVk Float CFloat where
+  withVk a f = f (CFloat a)
 
 withList :: WithVk a b => [a] -> ([b] -> IO c) -> IO c
 withList a f =
