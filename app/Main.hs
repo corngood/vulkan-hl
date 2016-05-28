@@ -71,7 +71,7 @@ run window = do
      Vk.DebugReportPerformanceWarningBit .|.
      Vk.DebugReportInformationBit .|.
      Vk.DebugReportDebugBit)
-    (\f ot o l mc lp m -> print (f, ot, o, l, mc, lp, m) >> return True)
+    (\f ot o l mc lp m -> print (f, ot, o, l, mc, lp, m) >> return False)
   surface <- createSurface window inst
   (physicalDevice, qf, device, queue, commandPool) <- findAndCreateDevice inst surface
   surfaceFormat <- findSurfaceFormat <$> surfaceFormats physicalDevice surface
