@@ -4,8 +4,9 @@
 module Main where
 
 import Control.Exception
--- import Control.Monad
+import Control.Monad
 import Data.Bits
+import Data.Vector.Storable.Sized as V
 import qualified Graphics.Vulkan as Vk
 import qualified Graphics.Vulkan.KHR.Surface as VkS
 import Graphics.Vulkan.HL
@@ -21,7 +22,7 @@ findAndCreateDevice inst surface = do
     Just (pd, qf) -> do
       d <- createDevice pd $ DeviceCreateInfo [QueueCreateInfo qf [0]] ["VK_LAYER_LUNARG_standard_validation"] ["VK_KHR_swapchain"]
       q <- getQueue d qf 0
-      cp <- createCommandPool d $ CommandPoolCreateInfo qf
+      cp <- createCommandPool d $ CommandPoolCreateInfo Vk.CommandPoolCreateResetCommandBufferBit qf
       return (pd, qf, d, q, cp)
     Nothing -> error "No Device"
   where
@@ -77,31 +78,77 @@ run window = do
   surfaceFormat <- findSurfaceFormat <$> surfaceFormats physicalDevice surface
   surfaceCaps <- surfaceCapabilities physicalDevice surface
   commandBuffer <- allocateCommandBuffer device commandPool Vk.CommandBufferLevelPrimary
-  extent <- swapchainExtents window surfaceCaps
+  extent@(Vk.Extent2D width height) <- swapchainExtents window surfaceCaps
   let imageCount = swapchainImageCount surfaceCaps
-  swapchain <- createSwapchain device (SwapchainCreateInfo (Vk.SwapchainCreateFlags zeroBits) surface imageCount surfaceFormat
+  swapchain <- createSwapchain device (SwapchainCreateInfo zeroBits surface imageCount surfaceFormat
                                        extent 1 Vk.ImageUsageColorAttachmentBit Vk.SharingModeExclusive
                                        [qf] (Vk.currentTransform surfaceCaps) Vk.CompositeAlphaOpaqueBit
                                        Vk.PresentModeFifo True)
   images <- swapchainImages device swapchain
   imageViews <- mapM
-    (\image -> createImageView device $ ImageViewCreateInfo (Vk.ImageViewCreateFlags zeroBits) image Vk.ImageViewType2d
+    (\image -> createImageView device $ ImageViewCreateInfo zeroBits image Vk.ImageViewType2d
                (Vk.format (surfaceFormat :: Vk.SurfaceFormat))
                (Vk.ComponentMapping Vk.ComponentSwizzleR Vk.ComponentSwizzleG Vk.ComponentSwizzleB Vk.ComponentSwizzleA)
                (Vk.ImageSubresourceRange Vk.ImageAspectColorBit 0 1 0 1)) images
-  let attachment = Vk.AttachmentDescription (Vk.AttachmentDescriptionFlags zeroBits)
+  let attachment = Vk.AttachmentDescription zeroBits
         (Vk.format (surfaceFormat :: Vk.SurfaceFormat)) Vk.SampleCount1Bit Vk.AttachmentLoadOpClear Vk.AttachmentStoreOpStore
         Vk.AttachmentLoadOpDontCare Vk.AttachmentStoreOpDontCare Vk.ImageLayoutColorAttachmentOptimal
         Vk.ImageLayoutColorAttachmentOptimal
-      subpass = SubpassDescription (Vk.SubpassDescriptionFlags zeroBits) Vk.PipelineBindPointGraphics
+      subpass = SubpassDescription zeroBits Vk.PipelineBindPointGraphics
         [] [Vk.AttachmentReference 0 Vk.ImageLayoutColorAttachmentOptimal] []
-  renderPass <- createRenderPass device (RenderPassCreateInfo (Vk.RenderPassCreateFlags zeroBits) [attachment] [subpass] [])
-  print (device, queue, commandPool, surfaceFormat, commandBuffer, surfaceCaps, extent, imageCount, swapchain, images, cb, imageViews, renderPass)
+  renderPass <- createRenderPass device (RenderPassCreateInfo zeroBits [attachment] [subpass] [])
+  framebuffers <- mapM
+    (\iv -> createFramebuffer device $ FramebufferCreateInfo zeroBits renderPass [iv] width height 1) imageViews
+  print ( device
+        , queue
+        , commandPool
+        , surfaceFormat
+        , commandBuffer
+        , surfaceCaps
+        , extent
+        , imageCount
+        , swapchain
+        , images
+        , cb
+        , imageViews
+        , renderPass
+        , framebuffers
+        )
+
   showWindow window
-  -- let loop = do
-  --       e <- fmap eventPayload <$> pollEvents
-  --       unless (QuitEvent `elem` e) loop
-  -- loop
+
+  let loop = do
+        semaphore <- createSemaphore device
+        print semaphore
+        imageIndex <- acquireNextImage device swapchain semaphore
+        print imageIndex
+        beginCommandBuffer commandBuffer
+        cmdPipelineBarrier commandBuffer Vk.PipelineStageAllCommandsBit Vk.PipelineStageBottomOfPipeBit zeroBits
+          [] [] [ImageMemoryBarrier zeroBits Vk.AccessColorAttachmentWriteBit
+                 Vk.ImageLayoutUndefined Vk.ImageLayoutColorAttachmentOptimal
+                 Vk.QueueFamilyIgnored Vk.QueueFamilyIgnored
+                 (images !! imageIndex)
+                 (Vk.ImageSubresourceRange Vk.ImageAspectColorBit 0 1 0 1)
+                ]
+        cmdBeginRenderPass commandBuffer (RenderPassBeginInfo renderPass (framebuffers !! imageIndex)
+                                          (Vk.Rect2D (Vk.Offset2D 0 0) extent) [Vk.Color $ Vk.Float32 (V.replicate (0.3 * fromIntegral imageIndex))])
+          Vk.SubpassContentsInline
+        cmdEndRenderPass commandBuffer
+        cmdPipelineBarrier commandBuffer Vk.PipelineStageAllCommandsBit Vk.PipelineStageBottomOfPipeBit zeroBits
+          [] [] [ImageMemoryBarrier Vk.AccessColorAttachmentWriteBit Vk.AccessMemoryReadBit
+                 Vk.ImageLayoutColorAttachmentOptimal (Vk.ImageLayout 1000001002 {-VK_IMAGE_LAYOUT_PRESENT_SRC_KHR-})
+                 Vk.QueueFamilyIgnored Vk.QueueFamilyIgnored
+                 (images !! imageIndex)
+                 (Vk.ImageSubresourceRange Vk.ImageAspectColorBit 0 1 0 1)
+                ]
+        endCommandBuffer commandBuffer
+        queueSubmit queue [SubmitInfo [(semaphore, Vk.PipelineStageBottomOfPipeBit)] [commandBuffer] []] (Vk.Fence 0)
+        queuePresent queue (PresentInfo [] [(swapchain, imageIndex)])
+        queueWaitIdle queue
+        destroySemaphore device semaphore
+        e <- fmap eventPayload <$> pollEvents
+        unless (QuitEvent `elem` e) loop
+  loop
 
 main :: IO ()
 main = do

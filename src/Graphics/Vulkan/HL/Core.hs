@@ -142,13 +142,14 @@ getQueue d f i =
   wrapOutPtr id
   $ Vk.getDeviceQueue d (fromIntegral f) (fromIntegral i)
 
-data CommandPoolCreateInfo = CommandPoolCreateInfo { comamndPoolQueueFamily :: Int
+data CommandPoolCreateInfo = CommandPoolCreateInfo { flags :: Vk.CommandPoolCreateFlags
+                                                   , queueFamilyIndex :: Int
                                                    }
 
 instance WithVk CommandPoolCreateInfo Vk.CommandPoolCreateInfo where
-  withVk (CommandPoolCreateInfo qfi) f =
+  withVk (CommandPoolCreateInfo fl qfi) f =
     f $ Vk.CommandPoolCreateInfo Vk.StructureTypeCommandPoolCreateInfo nullPtr
-    zeroBits (fromIntegral qfi)
+    fl (fromIntegral qfi)
 
 createCommandPool :: Vk.Device -> CommandPoolCreateInfo -> IO Vk.CommandPool
 createCommandPool d ci =
@@ -267,11 +268,11 @@ data ImageViewCreateInfo = ImageViewCreateInfo { flags :: Vk.ImageViewCreateFlag
 instance WithVk ImageViewCreateInfo Vk.ImageViewCreateInfo where
   withVk s f =
     (wrapConst (flags (s :: ImageViewCreateInfo)) $
-     wrapConst (image s) $
+     wrapConst (image (s :: ImageViewCreateInfo)) $
      wrapConst (viewType s) $
      wrapConst (format s) $
      wrapConst (components s) $
-     wrapConst (subresourceRange s)
+     wrapConst (subresourceRange (s :: ImageViewCreateInfo))
      f)
     (Vk.ImageViewCreateInfo Vk.StructureTypeImageViewCreateInfo nullPtr)
 
@@ -312,7 +313,7 @@ data RenderPassCreateInfo = RenderPassCreateInfo { flags :: Vk.RenderPassCreateF
 instance WithVk RenderPassCreateInfo Vk.RenderPassCreateInfo where
   withVk s f =
     (wrapConst (flags (s :: RenderPassCreateInfo)) $
-     wrapInArray (attachments s) $
+     wrapInArray (attachments (s :: RenderPassCreateInfo)) $
      wrapInArray (subpasses s) $
      wrapInArray (dependencies s)
      f)
@@ -324,3 +325,126 @@ createRenderPass d ci =
   (wrapConst nullPtr $
    wrapOutPtr id)
   $ Vk.createRenderPass d
+
+data FramebufferCreateInfo = FramebufferCreateInfo { flags :: Vk.FramebufferCreateFlags
+                                                   , renderPass :: Vk.RenderPass
+                                                   , attachments :: [Vk.ImageView]
+                                                   , width :: Word32
+                                                   , height :: Word32
+                                                   , layers :: Int
+                                                   }
+
+instance WithVk FramebufferCreateInfo Vk.FramebufferCreateInfo where
+  withVk s f =
+    (wrapConst (flags (s :: FramebufferCreateInfo)) $
+     wrapConst (renderPass (s :: FramebufferCreateInfo)) $
+     wrapInArray (attachments (s :: FramebufferCreateInfo)) $
+     wrapConst (width s) $
+     wrapConst (height s) $
+     wrapValue (layers s) f)
+    (Vk.FramebufferCreateInfo Vk.StructureTypeFramebufferCreateInfo nullPtr)
+
+createFramebuffer :: Vk.Device -> FramebufferCreateInfo -> IO Vk.Framebuffer
+createFramebuffer d ci =
+  wrapInPtr ci
+  (wrapConst nullPtr $
+   wrapOutPtr id)
+  $ Vk.createFramebuffer d
+
+createSemaphore :: Vk.Device -> IO Vk.Semaphore
+createSemaphore d =
+  wrapInPtr (Vk.SemaphoreCreateInfo Vk.StructureTypeSemaphoreCreateInfo nullPtr zeroBits)
+  (wrapConst nullPtr $
+   wrapOutPtr id) $
+  Vk.createSemaphore d
+
+destroySemaphore :: Vk.Device -> Vk.Semaphore -> IO ()
+destroySemaphore d s = Vk.destroySemaphore d s nullPtr >>= check
+
+acquireNextImage :: Vk.Device -> Vk.Swapchain -> Vk.Semaphore -> IO Int
+acquireNextImage d sc s =
+  wrapOutPtr id $
+  Vk.acquireNextImage d sc maxBound s (Vk.Fence 0)
+
+beginCommandBuffer :: Vk.CommandBuffer -> IO ()
+beginCommandBuffer cb =
+  wrapInPtr (Vk.CommandBufferBeginInfo Vk.StructureTypeCommandBufferBeginInfo nullPtr zeroBits nullPtr) id
+  (Vk.beginCommandBuffer cb) >>= check
+
+endCommandBuffer :: Vk.CommandBuffer -> IO ()
+endCommandBuffer cb = Vk.endCommandBuffer cb >>= check
+
+data ImageMemoryBarrier = ImageMemoryBarrier { srcAccessMask :: Vk.AccessFlags
+                                             , dstAccessMask :: Vk.AccessFlags
+                                             , oldLayout :: Vk.ImageLayout
+                                             , newLayout :: Vk.ImageLayout
+                                             , srcQueueFamilyIndex :: Word32
+                                             , dstQueueFamilyIndex :: Word32
+                                             , image :: Vk.Image
+                                             , subresourceRange :: Vk.ImageSubresourceRange
+                                             }
+
+instance WithVk ImageMemoryBarrier Vk.ImageMemoryBarrier where
+  withVk (ImageMemoryBarrier sam dam ol nl sqfi dqfi i sr) f =
+    f (Vk.ImageMemoryBarrier Vk.StructureTypeImageMemoryBarrier nullPtr sam dam ol nl sqfi dqfi i sr)
+
+cmdPipelineBarrier :: Vk.CommandBuffer -> Vk.PipelineStageFlags -> Vk.PipelineStageFlags -> Vk.DependencyFlags ->
+                      [Vk.MemoryBarrier] -> [Vk.BufferMemoryBarrier] -> [ImageMemoryBarrier] -> IO ()
+cmdPipelineBarrier cb ssm dsm df mb bmb imb =
+  wrapInArray mb
+  (wrapInArray bmb $
+   wrapInArray imb id) $
+  Vk.cmdPipelineBarrier cb ssm dsm df
+
+data RenderPassBeginInfo = RenderPassBeginInfo { renderPass :: Vk.RenderPass
+                                               , framebuffer :: Vk.Framebuffer
+                                               , renderArea :: Vk.Rect2D
+                                               , clearValues :: [Vk.ClearValue]
+                                               }
+
+instance WithVk RenderPassBeginInfo Vk.RenderPassBeginInfo where
+  withVk (RenderPassBeginInfo rp fb ra cv) f =
+    wrapInArray cv f $
+    Vk.RenderPassBeginInfo Vk.StructureTypeRenderPassBeginInfo nullPtr rp fb ra
+
+cmdBeginRenderPass :: Vk.CommandBuffer -> RenderPassBeginInfo -> Vk.SubpassContents -> IO ()
+cmdBeginRenderPass cb bi sc =
+  wrapInPtr bi (wrapConst sc id) $
+  Vk.cmdBeginRenderPass cb
+
+cmdEndRenderPass :: Vk.CommandBuffer -> IO ()
+cmdEndRenderPass cb = Vk.cmdEndRenderPass cb >>= check
+
+data SubmitInfo = SubmitInfo { waitSemaphores :: [(Vk.Semaphore, Vk.PipelineStageFlags)]
+                             , commandBuffers :: [Vk.CommandBuffer]
+                             , signalSemaphores :: [Vk.Semaphore]
+                             }
+
+instance WithVk SubmitInfo Vk.SubmitInfo where
+  withVk (SubmitInfo ws cb ss) f =
+    wrapInArray (fmap fst ws)
+    (wrapInArrayNoCount (fmap snd ws) $
+     wrapInArray cb $
+     wrapInArray ss f) $
+    Vk.SubmitInfo Vk.StructureTypeSubmitInfo nullPtr
+
+queueSubmit :: Vk.Queue -> [SubmitInfo] -> Vk.Fence -> IO ()
+queueSubmit q si f = wrapInArray si (wrapConst f id) (Vk.queueSubmit q) >>= check
+
+data PresentInfo = PresentInfo { waitSemaphores :: [Vk.Semaphore]
+                               , swapchains :: [(Vk.Swapchain, Int)]
+                               }
+
+instance WithVk PresentInfo Vk.PresentInfo where
+  withVk (PresentInfo ws sc) f =
+    wrapInArray ws
+    (wrapInArray (fst <$> sc) $
+     wrapInArrayNoCount (snd <$> sc) $
+     wrapConst nullPtr f) $
+    Vk.PresentInfo (Vk.StructureType 1000001001) nullPtr
+
+queuePresent :: Vk.Queue -> PresentInfo -> IO ()
+queuePresent q pi = wrapInPtr pi id (Vk.queuePresent q) >>= check
+
+queueWaitIdle :: Vk.Queue -> IO ()
+queueWaitIdle q = Vk.queueWaitIdle q >>= check

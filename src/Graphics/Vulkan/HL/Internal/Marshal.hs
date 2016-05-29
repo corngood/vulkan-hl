@@ -30,6 +30,9 @@ class FromVk a b | a -> b where
 instance FromVk Bool Bool32 where
   fromVk = return . (\(Bool32 b) -> b /= 0)
 
+instance FromVk Int Word32 where
+  fromVk = return . fromIntegral
+
 instance FromVk SurfaceFormat SurfaceFormat where
   fromVk = return
 
@@ -69,6 +72,12 @@ instance FromVk ImageView ImageView where
 instance FromVk RenderPass RenderPass where
   fromVk = return
 
+instance FromVk Framebuffer Framebuffer where
+  fromVk = return
+
+instance FromVk Semaphore Semaphore where
+  fromVk = return
+
 instance FromVk DebugReportCallback DebugReportCallback where
   fromVk = return
 
@@ -94,6 +103,39 @@ instance WithVk SubpassDependency SubpassDependency where
   withVk a f = f a
 
 instance WithVk DebugReportCallbackCreateInfo DebugReportCallbackCreateInfo where
+  withVk a f = f a
+
+instance WithVk SemaphoreCreateInfo SemaphoreCreateInfo where
+  withVk a f = f a
+
+instance WithVk CommandBufferBeginInfo CommandBufferBeginInfo where
+  withVk a f = f a
+
+instance WithVk ImageView ImageView where
+  withVk a f = f a
+
+instance WithVk MemoryBarrier MemoryBarrier where
+  withVk a f = f a
+
+instance WithVk BufferMemoryBarrier BufferMemoryBarrier where
+  withVk a f = f a
+
+instance WithVk ImageMemoryBarrier ImageMemoryBarrier where
+  withVk a f = f a
+
+instance WithVk ClearValue ClearValue where
+  withVk a f = f a
+
+instance WithVk Semaphore Semaphore where
+  withVk a f = f a
+
+instance WithVk PipelineStageFlags PipelineStageFlags where
+  withVk a f = f a
+
+instance WithVk CommandBuffer CommandBuffer where
+  withVk a f = f a
+
+instance WithVk Swapchain Swapchain where
   withVk a f = f a
 
 instance WithVk Int Word32 where
@@ -148,6 +190,9 @@ wrapOutPtr g f =
 
 wrapInArray :: (Num l, WithVk a b, Storable b) => [a] -> (c -> IO d) -> (l -> Ptr b -> c) -> IO d
 wrapInArray a g f = withList a (`withArrayLen` (\l p -> g $ f (fromIntegral l) p))
+
+wrapInArrayNoCount :: (WithVk a b, Storable b) => [a] -> (c -> IO d) -> (Ptr b -> c) -> IO d
+wrapInArrayNoCount a g f = withList a (`withArray` (g . f))
 
 wrapOutArray :: (Storable b, FromVk a b, Checkable d) => Int -> (c -> IO d) -> (Ptr b -> c) -> IO [a]
 wrapOutArray n g f =
