@@ -9,7 +9,7 @@ import Foreign.C.Types
 import Foreign.Marshal
 import Foreign.Ptr
 import Foreign.Storable
-import Graphics.Vulkan
+import Graphics.Vulkan.Raw
 import SDL.Raw.Types
 
 foreign import ccall "SDL_vulkan.h SDL_GetVulkanInstanceExtensions" getInstanceExtensionsFFI :: Ptr CUInt -> Ptr (Ptr CChar) -> IO Bool
@@ -27,4 +27,4 @@ requiredInstanceExtensions =
                                  )
            )
 
-foreign import ccall "SDL_vulkan.h SDL_CreateVulkanSurface" createSurfaceFFI :: Window -> Instance -> Ptr Graphics.Vulkan.Surface -> IO Bool
+foreign import ccall "SDL_vulkan.h SDL_CreateVulkanSurface" createSurfaceFFI :: Window -> VkInstance -> Ptr VkSurfaceKHR -> IO Bool

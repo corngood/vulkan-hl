@@ -1,6 +1,6 @@
 {-# language TemplateHaskell #-}
 
-module Graphics.Vulkan.HL.Internal.TH where
+module Graphics.Vulkan.Internal.TH where
 
 import Data.Char
 import Language.Haskell.TH
