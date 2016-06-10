@@ -6,7 +6,7 @@ module Main where
 import Control.Exception
 import Control.Monad
 import Data.Bits
-import Data.Vector.Storable.Sized as V
+import Data.Vector.Storable.Sized as V hiding (mapM, elem)
 import Graphics.Vulkan as Vk
 import Linear.V2
 import SDL hiding (Surface)
