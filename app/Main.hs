@@ -124,7 +124,7 @@ run window = do
         cmdPipelineBarrier commandBuffer AllCommands BottomOfPipe zeroBits
           [] [] [ImageMemoryBarrier zeroBits ColorAttachmentWrite
                  UndefinedLayout ColorAttachmentOptimal
-                 Ignored Ignored
+                 ignored ignored
                  (images !! imageIndex)
                  (ImageSubresourceRange Color 0 1 0 1)
                 ]
@@ -135,7 +135,7 @@ run window = do
         cmdPipelineBarrier commandBuffer AllCommands BottomOfPipe zeroBits
           [] [] [ImageMemoryBarrier ColorAttachmentWrite MemoryRead
                  ColorAttachmentOptimal PresentSource
-                 Ignored Ignored
+                 ignored ignored
                  (images !! imageIndex)
                  (ImageSubresourceRange Color 0 1 0 1)
                 ]
