@@ -7,6 +7,7 @@
 module Graphics.Vulkan.Internal.Marshal where
 
 import Data.Bits
+import Data.Int
 import Data.Word
 import Foreign.C
 import Foreign.Marshal
@@ -30,7 +31,10 @@ class FromVk a b | a -> b where
 instance FromVk Bool VkBool32 where
   fromVk = pure . (\(VkBool32 b) -> b /= 0)
 
-instance FromVk Int Word32 where
+instance FromVk Word Word32 where
+  fromVk = pure . fromIntegral
+
+instance FromVk Int Int32 where
   fromVk = pure . fromIntegral
 
 instance FromVk VkCommandBuffer VkCommandBuffer where fromVk = pure
@@ -74,7 +78,10 @@ instance WithVk VkPipelineStageFlags VkPipelineStageFlags where withVk a f = f a
 instance WithVk VkCommandBuffer VkCommandBuffer where withVk a f = f a
 instance WithVk VkSwapchainKHR VkSwapchainKHR where withVk a f = f a
 
-instance WithVk Int Word32 where
+instance WithVk Word Word32 where
+  withVk a f = f (fromIntegral a)
+
+instance WithVk Int Int32 where
   withVk a f = f (fromIntegral a)
 
 instance WithVk Bool VkBool32 where
@@ -115,6 +122,10 @@ wrapValue a g f = withVk a (g . f)
 wrapInPtr :: (WithVk a b, Storable b) => a -> (c -> IO d) -> (Ptr b -> c) -> IO d
 wrapInPtr a g f = withVk a (`with` (g . f))
 
+wrapOptPtr :: (WithVk a b, Storable b) => (Maybe a) -> (c -> IO d) -> (Ptr b -> c) -> IO d
+wrapOptPtr (Just a) g f = wrapInPtr a g f
+wrapOptPtr Nothing g f = g $ f nullPtr
+
 wrapOutPtr :: (Storable b, FromVk a b, Checkable d) => (c -> IO d) -> (Ptr b -> c) -> IO a
 wrapOutPtr g f =
   alloca (\ptr -> do
@@ -130,12 +141,16 @@ wrapInArray a g f = withList a (`withArrayLen` (\l p -> g $ f (fromIntegral l) p
 wrapInArrayNoCount :: (WithVk a b, Storable b) => [a] -> (c -> IO d) -> (Ptr b -> c) -> IO d
 wrapInArrayNoCount a g f = withList a (`withArray` (g . f))
 
-wrapOutArray :: (Storable b, FromVk a b, Checkable d) => Int -> (c -> IO d) -> (Ptr b -> c) -> IO [a]
+wrapOptArrayNoCount :: (WithVk a b, Storable b) => Maybe [a] -> (c -> IO d) -> (Ptr b -> c) -> IO d
+wrapOptArrayNoCount (Just a) g f = wrapInArrayNoCount a g f
+wrapOptArrayNoCount Nothing g f = g $ f nullPtr
+
+wrapOutArray :: (Storable b, FromVk a b, Checkable d) => Word -> (c -> IO d) -> (Ptr b -> c) -> IO [a]
 wrapOutArray n g f =
-  allocaArray n (\ptr -> do
+  allocaArray (fromIntegral n) (\ptr -> do
                     d <- g $ f ptr
                     check d
-                    a <- peekArray n ptr
+                    a <- peekArray (fromIntegral n) ptr
                     mapM fromVk a
                 )
 

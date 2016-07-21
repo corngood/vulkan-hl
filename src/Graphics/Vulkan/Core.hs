@@ -25,7 +25,7 @@ import SDL.Video.Vulkan
 
 type LayerName = String
 type ExtensionName = String
-data Version = Version Int Int Int
+data Version = Version Word Word Word
 
 instance WithVk Version Word32 where
   withVk (Version a b c) f = f v
@@ -62,7 +62,7 @@ instance WithVk InstanceCreateInfo VkInstanceCreateInfo where
     (VkInstanceCreateInfo VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO nullPtr (VkInstanceCreateFlags zeroBits))
 
 data Extension = Extension { extensionName :: ExtensionName
-                           , extensionVersion :: Int
+                           , extensionVersion :: Word
                            }
                deriving (Eq, Ord, Show, Read)
 
@@ -103,29 +103,29 @@ type QueueFlags = Flags VkQueueFlags
 pattern GraphicsQueue :: QueueFlags
 pattern GraphicsQueue = Flags VK_QUEUE_GRAPHICS_BIT
 
-data Extent2D = Extent2D { width :: Int
-                         , height :: Int
+data Extent2D = Extent2D { width :: Word
+                         , height :: Word
                          }
               deriving (Eq, Ord, Show)
 
 instance FromVk Extent2D VkExtent2D where fromVk (VkExtent2D w h) = Extent2D <$> fromVk w <*> fromVk h
 instance WithVk Extent2D VkExtent2D where withVk (Extent2D w h) fn = (wrapValue w $ wrapValue h fn) VkExtent2D
 
-data Extent3D = Extent3D { width :: Int
-                         , height :: Int
-                         , depth :: Int
+data Extent3D = Extent3D { width :: Word
+                         , height :: Word
+                         , depth :: Word
                          }
               deriving (Eq, Ord, Show)
 
 instance FromVk Extent3D VkExtent3D where fromVk (VkExtent3D w h d) = Extent3D <$> fromVk w <*> fromVk h <*> fromVk d
 instance WithVk Extent3D VkExtent3D where withVk (Extent3D w h d) fn = (wrapValue w $ wrapValue h $ wrapValue d fn) VkExtent3D
 
-ignored :: Int
+ignored :: Word
 ignored = fromIntegral VK_QUEUE_FAMILY_IGNORED
 
 data QueueFamilyProperties = QueueFamilyProperties { flags :: QueueFlags
-                                                   , count :: Int
-                                                   , timestampValidBits :: Int
+                                                   , count :: Word
+                                                   , timestampValidBits :: Word
                                                    , minImageTransferGranularity :: Extent3D
                                                    }
                            deriving (Eq, Ord, Show)
@@ -150,12 +150,12 @@ createSurface (Window w) (Handle i) = Handle <$>
              unless r $ error "SDL_CreateVulkanSurface failed"
              peek ps)
 
-queueFamilySupportsPresent :: PhysicalDevice -> Int -> Surface -> IO Bool
+queueFamilySupportsPresent :: PhysicalDevice -> Word -> Surface -> IO Bool
 queueFamilySupportsPresent pd qi s =
   (wrapValue pd $ wrapValue qi $ wrapValue s $ wrapOutPtr id)
   vkGetPhysicalDeviceSurfaceSupportKHR
 
-data QueueCreateInfo = QueueCreateInfo { queueCreateFamily :: Int
+data QueueCreateInfo = QueueCreateInfo { queueCreateFamily :: Word
                                        , queuePriorities :: [Float]
                                        }
 
@@ -187,7 +187,7 @@ createDevice pd a =
 
 type Queue = Handle VkQueue
 
-getQueue :: Device -> Int -> Int -> IO Queue
+getQueue :: Device -> Word -> Word -> IO Queue
 getQueue d f i =
   (wrapValue d $ wrapValue f $ wrapValue i $ wrapOutPtr id)
   vkGetDeviceQueue
@@ -198,7 +198,7 @@ pattern CreateResetCommandBuffer :: CommandPoolCreateFlags
 pattern CreateResetCommandBuffer = Flags VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT
 
 data CommandPoolCreateInfo = CommandPoolCreateInfo { flags :: CommandPoolCreateFlags
-                                                   , queueFamilyIndex :: Int
+                                                   , queueFamilyIndex :: Word
                                                    }
 
 instance WithVk CommandPoolCreateInfo VkCommandPoolCreateInfo where
@@ -238,12 +238,12 @@ surfaceFormats pd s =
   (wrapValue pd $ wrapValue s wrapCountArray)
   vkGetPhysicalDeviceSurfaceFormatsKHR
 
-data SurfaceCapabilities = SurfaceCapabilities { minImageCount :: Int
-                                               , maxImageCount :: Int
+data SurfaceCapabilities = SurfaceCapabilities { minImageCount :: Word
+                                               , maxImageCount :: Word
                                                , currentExtent :: Extent2D
                                                , minImageExtent :: Extent2D
                                                , maxImageExtent :: Extent2D
-                                               , maxImageArrayLayers :: Int
+                                               , maxImageArrayLayers :: Word
                                                , supportedTransforms :: SurfaceTransformFlags
                                                , currentTransform :: SurfaceTransformFlags
                                                , supportedCompositeAlpha :: CompositeAlphaFlags
@@ -273,7 +273,7 @@ pattern Primary = Enumerator VK_COMMAND_BUFFER_LEVEL_PRIMARY
 
 type CommandBuffer = Handle VkCommandBuffer
 
-allocateCommandBuffers :: Device -> CommandPool -> CommandBufferLevel -> Int -> IO [CommandBuffer]
+allocateCommandBuffers :: Device -> CommandPool -> CommandBufferLevel -> Word -> IO [CommandBuffer]
 allocateCommandBuffers d (Handle cp) (Enumerator l) n =
   (wrapValue d $
    wrapInPtr (VkCommandBufferAllocateInfo VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO nullPtr cp l (fromIntegral n)) $
@@ -309,13 +309,13 @@ pattern Fifo = Enumerator VK_PRESENT_MODE_FIFO_KHR
 
 data SwapchainCreateInfo = SwapchainCreateInfo { flags :: SwapchainCreateFlags
                                                , surface :: Surface
-                                               , minImageCount :: Int
+                                               , minImageCount :: Word
                                                , imageFormat :: SurfaceFormat
                                                , imageExtent :: Extent2D
-                                               , imageArrayLayers :: Int
+                                               , imageArrayLayers :: Word
                                                , imageUsage :: ImageUsageFlags
                                                , imageSharingMode :: SharingMode
-                                               , queueFamilyIndices :: [Int]
+                                               , queueFamilyIndices :: [Word]
                                                , preTransform :: SurfaceTransformFlags
                                                , compositeAlpha :: CompositeAlphaFlags
                                                , presentMode :: PresentMode
@@ -444,10 +444,10 @@ pattern Color :: ImageAspectFlags
 pattern Color = Flags VK_IMAGE_ASPECT_COLOR_BIT
 
 data ImageSubresourceRange = ImageSubresourceRange { aspectMask :: ImageAspectFlags
-                                                   , baseMipLevel :: Int
-                                                   , levelCount :: Int
-                                                   , baseArrayLayer :: Int
-                                                   , layerCount :: Int
+                                                   , baseMipLevel :: Word
+                                                   , levelCount :: Word
+                                                   , baseArrayLayer :: Word
+                                                   , layerCount :: Word
                                                    }
                            deriving (Eq, Ord, Show)
 
@@ -539,7 +539,7 @@ type PipelineBindPoint = Enumerator VkPipelineBindPoint
 pattern GraphicsBindPoint :: PipelineBindPoint
 pattern GraphicsBindPoint = Enumerator VK_PIPELINE_BIND_POINT_GRAPHICS
 
-data AttachmentReference = AttachmentReference { attachment :: Int
+data AttachmentReference = AttachmentReference { attachment :: Word
                                                , layout :: ImageLayout
                                                }
                          deriving (Eq, Ord, Show)
@@ -555,7 +555,7 @@ data SubpassDescription = SubpassDescription { flags :: SubpassDescriptionFlags
                                              , colorAttachments :: [AttachmentReference]
                                              -- , pResolveAttachments :: Maybe [AttachmentReference]
                                              -- , depthStencilAttachment :: VkAttachmentReference
-                                             , preserveAttachments :: [Int]
+                                             , preserveAttachments :: [Word]
                                              }
                         deriving (Eq, Ord, Show)
 
@@ -588,9 +588,9 @@ type FramebufferCreateFlags = Flags VkFramebufferCreateFlags
 data FramebufferCreateInfo = FramebufferCreateInfo { flags :: FramebufferCreateFlags
                                                    , renderPass :: RenderPass
                                                    , attachments :: [ImageView]
-                                                   , width :: Int
-                                                   , height :: Int
-                                                   , layers :: Int
+                                                   , width :: Word
+                                                   , height :: Word
+                                                   , layers :: Word
                                                    }
 
 instance WithVk FramebufferCreateInfo VkFramebufferCreateInfo where
@@ -625,7 +625,7 @@ type Fence = Handle VkFence
 nullFence :: Fence
 nullFence = Handle $ VkFence 0
 
-acquireNextImage :: Device -> Swapchain -> Semaphore -> IO Int
+acquireNextImage :: Device -> Swapchain -> Semaphore -> IO Word
 acquireNextImage d sc s =
   (wrapValue d $ wrapValue sc $ wrapConst maxBound $ wrapValue s $ wrapValue nullFence $ wrapOutPtr id)
   vkAcquireNextImageKHR
@@ -668,8 +668,8 @@ instance WithVk DeviceSize VkDeviceSize where
 
 data BufferMemoryBarrier = BufferMemoryBarrier { srcAccessMask :: AccessFlags
                                                , dstAccessMask :: AccessFlags
-                                               , srcQueueFamilyIndex :: Int
-                                               , dstQueueFamilyIndex :: Int
+                                               , srcQueueFamilyIndex :: Word
+                                               , dstQueueFamilyIndex :: Word
                                                , buffer :: Buffer
                                                , offset :: DeviceSize
                                                , size :: DeviceSize
@@ -685,8 +685,8 @@ data ImageMemoryBarrier = ImageMemoryBarrier { srcAccessMask :: AccessFlags
                                              , dstAccessMask :: AccessFlags
                                              , oldLayout :: ImageLayout
                                              , newLayout :: ImageLayout
-                                             , srcQueueFamilyIndex :: Int
-                                             , dstQueueFamilyIndex :: Int
+                                             , srcQueueFamilyIndex :: Word
+                                             , dstQueueFamilyIndex :: Word
                                              , image :: Image
                                              , subresourceRange :: ImageSubresourceRange
                                              }
@@ -726,16 +726,16 @@ instance WithVk Rect2D VkRect2D where withVk (Rect2D o e) fn = (wrapValue o $ wr
 
 data ClearColorValue = FloatColor (Vector 4 Float)
                        | IntColor (Vector 4 Int)
-                       | UIntColor (Vector 4 Word32)
+                       | UIntColor (Vector 4 Word)
                        deriving (Eq, Ord, Show)
 
 instance WithVk ClearColorValue VkClearColorValue where
   withVk (FloatColor v) fn = fn $ VkFloat32 $ V.map CFloat v
   withVk (IntColor v) fn = fn $ VkInt32 $ V.map fromIntegral v
-  withVk (UIntColor v) fn = fn $ VkUint32 v
+  withVk (UIntColor v) fn = fn $ VkUint32 $ V.map fromIntegral v
 
 data ClearDepthStencilValue = ClearDepthStencilValue { depth :: Float
-                                                     , stencil :: Int
+                                                     , stencil :: Word
                                                      }
                             deriving (Eq, Ord, Show)
 
@@ -791,7 +791,7 @@ queueSubmit :: Queue -> [SubmitInfo] -> Fence -> IO ()
 queueSubmit q si f = (wrapValue q $ wrapInArray si $ wrapValue f id) vkQueueSubmit >>= check
 
 data PresentInfo = PresentInfo { waitSemaphores :: [Semaphore]
-                               , swapchains :: [(Swapchain, Int)]
+                               , swapchains :: [(Swapchain, Word)]
                                }
 
 instance WithVk PresentInfo VkPresentInfoKHR where
@@ -807,3 +807,396 @@ queuePresent q pi = (wrapValue q $ wrapInPtr pi id) vkQueuePresentKHR >>= check
 
 queueWaitIdle :: Queue -> IO ()
 queueWaitIdle q = wrapValue q id vkQueueWaitIdle >>= check
+
+type PipelineCreateFlags = Flags VkPipelineCreateFlags
+
+type PipelineShaderStageCreateFlags = Flags VkPipelineShaderStageCreateFlags
+
+type ShaderStage = Enumerator VkShaderStageFlagBits
+
+type ShaderModule = Handle VkShaderModule
+
+data SpecializationMapEntry = SpecializationMapEntry { constantID :: Word
+                                                     , offset :: Word
+                                                     , size :: CSize
+                                                     }
+                            deriving (Eq, Ord, Show)
+
+instance WithVk SpecializationMapEntry VkSpecializationMapEntry where
+  withVk (SpecializationMapEntry c o s) fn =
+    (wrapValue c $ wrapValue o $ wrapConst s fn)
+    VkSpecializationMapEntry
+
+data SpecializationInfo = SpecializationInfo { mapEntries :: [SpecializationMapEntry]
+                                             , dataSize :: CSize
+                                             , pdata :: Ptr Void
+                                             }
+                        deriving (Eq, Ord, Show)
+
+instance WithVk SpecializationInfo VkSpecializationInfo where
+  withVk (SpecializationInfo me ds p) fn =
+    (wrapInArray me $ wrapConst ds $ wrapConst p fn)
+    VkSpecializationInfo
+
+data PipelineShaderStageCreateInfo = PipelineShaderStageCreateInfo { flags :: PipelineShaderStageCreateFlags
+                                                                   , stage :: ShaderStage
+                                                                   , shaderModule :: ShaderModule
+                                                                   , name :: String
+                                                                   , specializationInfo :: Maybe SpecializationInfo
+                                                                   }
+
+instance WithVk PipelineShaderStageCreateInfo VkPipelineShaderStageCreateInfo where
+  withVk (PipelineShaderStageCreateInfo f s sm n si) fn =
+    (wrapValue f $ wrapValue s $ wrapValue sm $ wrapValue n $ wrapOptPtr si fn)
+    (VkPipelineShaderStageCreateInfo VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO nullPtr)
+
+type PipelineVertexInputStateCreateFlags = Flags VkPipelineVertexInputStateCreateFlags
+
+type VertexInputRate = Enumerator VkVertexInputRate
+
+data VertexInputBindingDescription = VertexInputBindingDescription { binding :: Word
+                                                                   , stride :: Word
+                                                                   , inputRate :: VertexInputRate
+                                                                   }
+                                   deriving (Eq, Ord, Show)
+
+instance WithVk VertexInputBindingDescription VkVertexInputBindingDescription where
+  withVk (VertexInputBindingDescription b s ir) fn =
+    (wrapValue b $ wrapValue s $ wrapValue ir fn)
+    VkVertexInputBindingDescription
+
+data VertexInputAttributeDescription = VertexInputAttributeDescription { location :: Word
+                                                                       , binding :: Word
+                                                                       , format :: Format
+                                                                       , offset :: Word
+                                                                       }
+                                     deriving (Eq, Ord, Show)
+
+instance WithVk VertexInputAttributeDescription VkVertexInputAttributeDescription where
+  withVk (VertexInputAttributeDescription l b f o) fn =
+    (wrapValue l $ wrapValue b $ wrapValue f $ wrapValue o fn)
+    VkVertexInputAttributeDescription
+
+data PipelineVertexInputStateCreateInfo = PipelineVertexInputStateCreateInfo
+  { flags :: PipelineVertexInputStateCreateFlags
+  , vertexBindingDescriptions :: [VertexInputBindingDescription]
+  , vertexAttributeDescriptions :: [VertexInputAttributeDescription]
+  }
+  deriving (Eq, Ord, Show)
+
+instance WithVk PipelineVertexInputStateCreateInfo VkPipelineVertexInputStateCreateInfo where
+  withVk (PipelineVertexInputStateCreateInfo f vbd vad) fn =
+    (wrapValue f $ wrapInArray vbd $ wrapInArray vad fn)
+    (VkPipelineVertexInputStateCreateInfo VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO nullPtr)
+
+type PipelineInputAssemblyStateCreateFlags = Flags VkPipelineInputAssemblyStateCreateFlags
+
+type PrimitiveTopology = Enumerator VkPrimitiveTopology
+
+data PipelineInputAssemblyStateCreateInfo = PipelineInputAssemblyStateCreateInfo
+  { flags :: PipelineInputAssemblyStateCreateFlags
+  , topology :: PrimitiveTopology
+  , primitiveRestartEnable :: Bool
+  }
+  deriving (Eq, Ord, Show)
+
+instance WithVk PipelineInputAssemblyStateCreateInfo VkPipelineInputAssemblyStateCreateInfo where
+  withVk (PipelineInputAssemblyStateCreateInfo f t p) fn =
+    (wrapValue f $ wrapValue t $ wrapValue p fn)
+    (VkPipelineInputAssemblyStateCreateInfo VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO nullPtr)
+
+type PipelineTessellationStateCreateFlags = Flags VkPipelineTessellationStateCreateFlags
+
+data PipelineTessellationStateCreateInfo = PipelineTessellationStateCreateInfo
+  { flags :: PipelineTessellationStateCreateFlags
+  , patchControlPoints :: Word
+  }
+  deriving (Eq, Ord, Show)
+
+instance WithVk PipelineTessellationStateCreateInfo VkPipelineTessellationStateCreateInfo where
+  withVk (PipelineTessellationStateCreateInfo f p) fn =
+    (wrapValue f $ wrapValue p fn)
+    (VkPipelineTessellationStateCreateInfo VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO nullPtr)
+
+type PipelineViewportStateCreateFlags = Flags VkPipelineViewportStateCreateFlags
+
+data Viewport = Viewport { x :: Float
+                         , y :: Float
+                         , width :: Float
+                         , height :: Float
+                         , minDepth :: Float
+                         , maxDepth :: Float
+                         }
+              deriving (Eq, Ord, Show)
+
+instance WithVk Viewport VkViewport where
+  withVk (Viewport x y w h mi ma) fn =
+    (wrapValue x $
+     wrapValue y $
+     wrapValue w $
+     wrapValue h $
+     wrapValue mi $
+     wrapValue ma fn)
+    VkViewport
+
+data PipelineViewportStateCreateInfo = PipelineViewportStateCreateInfo
+                                   { flags :: PipelineViewportStateCreateFlags
+                                   , viewports :: [Viewport]
+                                   , scissors :: [Rect2D]
+                                   }
+  deriving (Eq, Ord, Show)
+
+instance WithVk PipelineViewportStateCreateInfo VkPipelineViewportStateCreateInfo where
+  withVk (PipelineViewportStateCreateInfo f v s) fn =
+    (wrapValue f $ wrapInArray v $ wrapInArray s fn)
+    (VkPipelineViewportStateCreateInfo VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO nullPtr)
+
+type PipelineRasterizationStateCreateFlags = Flags VkPipelineRasterizationStateCreateFlags
+
+type PolygonMode = Enumerator VkPolygonMode
+
+type CullModeFlags = Flags VkCullModeFlags
+
+type FrontFace = Enumerator VkFrontFace
+
+data PipelineRasterizationStateCreateInfo = PipelineRasterizationStateCreateInfo
+                                            { flags :: PipelineRasterizationStateCreateFlags
+                                            , depthClampEnable :: Bool
+                                            , rasterizerDiscardEnable :: Bool
+                                            , polygonMode :: PolygonMode
+                                            , cullMode :: CullModeFlags
+                                            , frontFace :: FrontFace
+                                            , depthBiasEnable :: Bool
+                                            , depthBiasConstantFactor :: Float
+                                            , depthBiasClamp :: Float
+                                            , depthBiasSlopeFactor :: Float
+                                            , lineWidth :: Float
+                                            }
+                                          deriving (Eq, Ord, Show)
+
+instance WithVk PipelineRasterizationStateCreateInfo VkPipelineRasterizationStateCreateInfo where
+  withVk (PipelineRasterizationStateCreateInfo f dce rde pm cm ff dbe dbcf dbc dbsf lw) fn =
+    (wrapValue f $
+     wrapValue dce $
+     wrapValue rde $
+     wrapValue pm $
+     wrapValue cm $
+     wrapValue ff $
+     wrapValue dbe $
+     wrapValue dbcf $
+     wrapValue dbc $
+     wrapValue dbsf $
+     wrapValue lw fn)
+    (VkPipelineRasterizationStateCreateInfo VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO nullPtr)
+
+type PipelineMultisampleStateCreateFlags = Flags VkPipelineMultisampleStateCreateFlags
+
+newtype SampleMask = SampleMask Word
+                   deriving (Eq, Ord, Show)
+
+instance WithVk SampleMask VkSampleMask where
+  withVk (SampleMask m) fn =
+    (wrapValue m fn)
+    VkSampleMask
+
+data PipelineMultisampleStateCreateInfo = PipelineMultisampleStateCreateInfo
+                                          { flags :: PipelineMultisampleStateCreateFlags
+                                          , rasterizationSamples :: SampleCountFlags
+                                          , sampleShadingEnable :: Bool
+                                          , minSampleShading :: Float
+                                          , sampleMask :: Maybe [SampleMask]
+                                          , alphaToCoverageEnable :: Bool
+                                          , alphaToOneEnable :: Bool
+                                          }
+                                        deriving (Eq, Ord, Show)
+
+instance WithVk PipelineMultisampleStateCreateInfo VkPipelineMultisampleStateCreateInfo where
+  withVk (PipelineMultisampleStateCreateInfo f rs sse mss sm atce atoe) fn =
+    (wrapValue f $
+     wrapValue rs $
+     wrapValue sse $
+     wrapValue mss $
+     wrapOptArrayNoCount sm $
+     wrapValue atce $
+     wrapValue atoe fn)
+    (VkPipelineMultisampleStateCreateInfo VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO nullPtr)
+
+type PipelineDepthStencilStateCreateFlags = Flags VkPipelineDepthStencilStateCreateFlags
+
+type StencilOp = Enumerator VkStencilOp
+
+type CompareOp = Enumerator VkCompareOp
+
+data StencilOpState = StencilOpState { failOp :: StencilOp
+                                     , passOp :: StencilOp
+                                     , depthFailOp :: StencilOp
+                                     , compareOp :: CompareOp
+                                     , compareMask :: Word
+                                     , writeMask :: Word
+                                     , reference :: Word
+                                     }
+                    deriving (Eq, Ord, Show)
+
+instance WithVk StencilOpState VkStencilOpState where
+  withVk (StencilOpState fo po dfo co cm wm r) fn =
+    (wrapValue fo $
+     wrapValue po $
+     wrapValue dfo $
+     wrapValue co $
+     wrapValue cm $
+     wrapValue wm $
+     wrapValue r fn)
+    VkStencilOpState
+
+data PipelineDepthStencilStateCreateInfo = PipelineDepthStencilStateCreateInfo
+                                           { flags :: PipelineDepthStencilStateCreateFlags
+                                           , depthTestEnable :: Bool
+                                           , depthWriteEnable :: Bool
+                                           , depthCompareOp :: CompareOp
+                                           , depthBoundsTestEnable :: Bool
+                                           , stencilTestEnable :: Bool
+                                           , front :: StencilOpState
+                                           , back :: StencilOpState
+                                           , minDepthBounds :: Float
+                                           , maxDepthBounds :: Float
+                                           }
+                                         deriving (Eq, Ord, Show)
+
+instance WithVk PipelineDepthStencilStateCreateInfo VkPipelineDepthStencilStateCreateInfo where
+  withVk (PipelineDepthStencilStateCreateInfo fl dte dwe dco dbte ste f b midb madb) fn =
+    (wrapValue fl $
+     wrapValue dte $
+     wrapValue dwe $
+     wrapValue dco $
+     wrapValue dbte $
+     wrapValue ste $
+     wrapValue f $
+     wrapValue b $
+     wrapValue midb $
+     wrapValue madb fn)
+    (VkPipelineDepthStencilStateCreateInfo VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO nullPtr)
+
+type PipelineColorBlendStateCreateFlags = Flags VkPipelineColorBlendStateCreateFlags
+
+type LogicOp = Enumerator VkLogicOp
+
+type BlendFactor = Enumerator VkBlendFactor
+
+type BlendOp = Enumerator VkBlendOp
+
+type ColorComponentFlags = Flags VkColorComponentFlags
+
+data PipelineColorBlendAttachmentState = PipelineColorBlendAttachmentState
+                                         { blendEnable :: Bool
+                                         , srcColorBlendFactor :: BlendFactor
+                                         , dstColorBlendFactor :: BlendFactor
+                                         , colorBlendOp :: BlendOp
+                                         , srcAlphaBlendFactor :: BlendFactor
+                                         , dstAlphaBlendFactor :: BlendFactor
+                                         , alphaBlendOp :: BlendOp
+                                         , colorWriteMask :: ColorComponentFlags
+                                         }
+                                       deriving (Eq, Ord, Show)
+
+instance WithVk PipelineColorBlendAttachmentState VkPipelineColorBlendAttachmentState where
+  withVk (PipelineColorBlendAttachmentState be scbf dcbf cbo sabf dabf abo cwm) fn =
+    (wrapValue be $
+     wrapValue scbf $
+     wrapValue dcbf $
+     wrapValue cbo $
+     wrapValue sabf $
+     wrapValue dabf $
+     wrapValue abo $
+     wrapValue cwm fn)
+    VkPipelineColorBlendAttachmentState
+
+data PipelineColorBlendStateCreateInfo = PipelineColorBlendStateCreateInfo
+                                         { flags :: PipelineColorBlendStateCreateFlags
+                                         , logicOpEnable :: Bool
+                                         , logicOp :: LogicOp
+                                         , attachments :: [PipelineColorBlendAttachmentState]
+                                         -- TODO Vector
+                                         , blendConstants :: Vector 4 CFloat
+                                         }
+                                       deriving (Eq, Ord, Show)
+
+instance WithVk PipelineColorBlendStateCreateInfo VkPipelineColorBlendStateCreateInfo where
+  withVk (PipelineColorBlendStateCreateInfo f loe lo a bc) fn =
+    (wrapValue f $
+     wrapValue loe $
+     wrapValue lo $
+     wrapInArray a $
+     wrapConst bc fn)
+    (VkPipelineColorBlendStateCreateInfo VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO nullPtr)
+
+type PipelineDynamicStateCreateFlags = Flags VkPipelineDynamicStateCreateFlags
+
+type DynamicState = Enumerator VkDynamicState
+
+data PipelineDynamicStateCreateInfo = PipelineDynamicStateCreateInfo
+                                      { flags :: PipelineDynamicStateCreateFlags
+                                      , dynamicStates :: [DynamicState]
+                                      }
+  deriving (Eq, Ord, Show)
+
+instance WithVk PipelineDynamicStateCreateInfo VkPipelineDynamicStateCreateInfo where
+  withVk (PipelineDynamicStateCreateInfo f ds) fn =
+    (wrapValue f $
+     wrapInArray ds fn)
+    (VkPipelineDynamicStateCreateInfo VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO nullPtr)
+
+type PipelineLayout = Handle VkPipelineLayout
+
+data GraphicsPipelineCreateInfo = GraphicsPipelineCreateInfo { flags :: PipelineCreateFlags
+                                                             , stages :: [PipelineShaderStageCreateInfo]
+                                                             , vertexInputState :: PipelineVertexInputStateCreateInfo
+                                                             , inputAssemblyState :: PipelineInputAssemblyStateCreateInfo
+                                                             , tessellationState :: Maybe PipelineTessellationStateCreateInfo
+                                                             -- TODO: Combine null on raster states
+                                                             , viewportState :: Maybe PipelineViewportStateCreateInfo
+                                                             , rasterizationState :: PipelineRasterizationStateCreateInfo
+                                                             , multisampleState :: Maybe PipelineMultisampleStateCreateInfo
+                                                             , depthStencilState :: PipelineDepthStencilStateCreateInfo
+                                                             , colorBlendState :: PipelineColorBlendStateCreateInfo
+                                                             , dynamicState :: Maybe PipelineDynamicStateCreateInfo
+                                                             , layout :: PipelineLayout
+                                                             , renderPass :: RenderPass
+                                                             , subpass :: Word
+                                                             -- TODO: Either or, depends on flags
+                                                             , basePipelineHandle :: Pipeline
+                                                             , basePipelineIndex :: Int
+                                                             }
+
+instance WithVk GraphicsPipelineCreateInfo VkGraphicsPipelineCreateInfo where
+  withVk (GraphicsPipelineCreateInfo f s vis ias ts vs rs ms dss cbs ds l rp sp bph bpi) fn =
+    (wrapValue f $
+     wrapInArray s $
+     wrapInPtr vis $
+     wrapInPtr ias $
+     wrapOptPtr ts $
+     wrapOptPtr vs $
+     wrapInPtr rs $
+     wrapOptPtr ms $
+     wrapInPtr dss $
+     wrapInPtr cbs $
+     wrapOptPtr ds $
+     wrapValue l $
+     wrapValue rp $
+     wrapValue sp $
+     wrapValue bph $
+     wrapValue bpi fn)
+    (VkGraphicsPipelineCreateInfo VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO nullPtr)
+
+type Pipeline = Handle VkPipeline
+
+createGraphicsPipelines :: Device -> [GraphicsPipelineCreateInfo] -> IO [Pipeline]
+createGraphicsPipelines d ci =
+  (wrapValue d $
+   wrapConst (VkPipelineCache 0) $
+   wrapInArray ci $
+   wrapConst nullPtr $
+   wrapOutArray (fromIntegral $ length ci) id)
+  vkCreateGraphicsPipelines
+
+createGraphicsPipeline :: Device -> GraphicsPipelineCreateInfo -> IO Pipeline
+createGraphicsPipeline d ci = head <$> createGraphicsPipelines d [ci]

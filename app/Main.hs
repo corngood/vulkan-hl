@@ -13,7 +13,7 @@ import SDL hiding (Surface)
 import SDL.Video.Vulkan
 import System.Environment
 
-findAndCreateDevice :: Instance -> Surface -> IO (PhysicalDevice, Int, Device, Queue, CommandPool)
+findAndCreateDevice :: Instance -> Surface -> IO (PhysicalDevice, Word, Device, Queue, CommandPool)
 findAndCreateDevice inst surface = do
   m <- findDevice =<< physicalDevices inst
   case m of
@@ -49,7 +49,7 @@ swapchainExtents w sc =
     Extent2D (-1) _ -> (\(V2 x y) -> Extent2D (fromIntegral x) (fromIntegral y)) <$> get (windowSize w)
     p -> return p
 
-swapchainImageCount :: SurfaceCapabilities -> Int
+swapchainImageCount :: SurfaceCapabilities -> Word
 swapchainImageCount sc =
   let ic = minImageCount (sc :: SurfaceCapabilities) + 1
   in fromIntegral $ case maxImageCount sc of
@@ -119,16 +119,18 @@ run window = do
         semaphore <- createSemaphore device
         print semaphore
         imageIndex <- acquireNextImage device swapchain semaphore
+        let image = images !! fromIntegral imageIndex
+            framebuffer = framebuffers !! fromIntegral imageIndex
         print imageIndex
         beginCommandBuffer commandBuffer
         cmdPipelineBarrier commandBuffer AllCommands BottomOfPipe zeroBits
           [] [] [ImageMemoryBarrier zeroBits ColorAttachmentWrite
                  UndefinedLayout ColorAttachmentOptimal
                  ignored ignored
-                 (images !! imageIndex)
+                 image
                  (ImageSubresourceRange Color 0 1 0 1)
                 ]
-        cmdBeginRenderPass commandBuffer (RenderPassBeginInfo renderPass (framebuffers !! imageIndex)
+        cmdBeginRenderPass commandBuffer (RenderPassBeginInfo renderPass framebuffer
                                           (Rect2D (Offset2D 0 0) extent) [ClearColor $ FloatColor (V.replicate (0.3 * fromIntegral imageIndex))])
           Inline
         cmdEndRenderPass commandBuffer
@@ -136,7 +138,7 @@ run window = do
           [] [] [ImageMemoryBarrier ColorAttachmentWrite MemoryRead
                  ColorAttachmentOptimal PresentSource
                  ignored ignored
-                 (images !! imageIndex)
+                 image
                  (ImageSubresourceRange Color 0 1 0 1)
                 ]
         endCommandBuffer commandBuffer
