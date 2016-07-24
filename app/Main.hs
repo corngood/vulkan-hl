@@ -68,7 +68,6 @@ run window = do
     (Vk.Error .|.
      Vk.Warning .|.
      PerformanceWarning .|.
-     Vk.Information .|.
      Vk.Debug)
     (\f ot o l mc lp m -> print (f, ot, o, l, mc, lp, m) >> return False)
   surface <- createSurface window inst
@@ -118,6 +117,48 @@ run window = do
 
   pipelineLayout <- createPipelineLayout device $ PipelineLayoutCreateInfo zeroBits [dsLayout] []
 
+  pipeline <- createGraphicsPipeline device $
+    GraphicsPipelineCreateInfo
+    zeroBits
+    [ PipelineShaderStageCreateInfo zeroBits Vertex nullHandle "main" Nothing
+    , PipelineShaderStageCreateInfo zeroBits Fragment nullHandle "main" Nothing
+    ]
+    (PipelineVertexInputStateCreateInfo zeroBits
+      [VertexInputBindingDescription 0 (3 * 5 * 4) PerVertex]
+      [ VertexInputAttributeDescription 0 0 R32G32B32SFloat 0
+      , VertexInputAttributeDescription 1 0 R32G32SFloat (3 * 4)
+      ])
+    (PipelineInputAssemblyStateCreateInfo zeroBits TriangleList False)
+    Nothing
+    (Just $ PipelineViewportStateCreateInfo zeroBits 1 Nothing 1 Nothing)
+    (PipelineRasterizationStateCreateInfo
+      zeroBits
+      False
+      False
+      Fill
+      Back
+      Clockwise
+      False 0 0 0
+      1)
+    (Just $ PipelineMultisampleStateCreateInfo zeroBits Sample1 False 0 Nothing False False)
+    (PipelineDepthStencilStateCreateInfo zeroBits True True LessOrEqual False False
+      (StencilOpState Keep Keep Keep Always 0 0 0)
+      (StencilOpState Keep Keep Keep Always 0 0 0)
+      0 0)
+    (PipelineColorBlendStateCreateInfo zeroBits False zeroBits
+      [PipelineColorBlendAttachmentState False zeroBits zeroBits zeroBits zeroBits zeroBits zeroBits Vk.all]
+      0)
+    (Just $ PipelineDynamicStateCreateInfo zeroBits [viewport, Scissor])
+    pipelineLayout
+    renderPass
+    0
+    nullHandle
+    (-1)
+
+  print ( dsLayout
+        , pipelineLayout
+        )
+
   showWindow window
 
   let loop = do
@@ -147,7 +188,7 @@ run window = do
                  (ImageSubresourceRange Color 0 1 0 1)
                 ]
         endCommandBuffer commandBuffer
-        queueSubmit queue [SubmitInfo [(semaphore, BottomOfPipe)] [commandBuffer] []] nullFence
+        queueSubmit queue [SubmitInfo [(semaphore, BottomOfPipe)] [commandBuffer] []] nullHandle
         queuePresent queue (PresentInfo [] [(swapchain, imageIndex)])
         queueWaitIdle queue
         destroySemaphore device semaphore

@@ -11,6 +11,7 @@ module Graphics.Vulkan.Core where
 
 import Control.Monad
 import Data.Bits
+import Data.Default
 import Data.Int
 import Data.Vector.Storable.Sized as V hiding (head, length)
 import Data.Void
@@ -23,6 +24,13 @@ import Graphics.Vulkan.Internal.Marshal
 import Graphics.Vulkan.Raw
 import SDL.Internal.Types (Window(Window))
 import SDL.Video.Vulkan
+
+instance Default VkFence where def = VkFence 0
+instance Default VkShaderModule where def = VkShaderModule 0
+instance Default VkPipeline where def = VkPipeline 0
+
+nullHandle :: Default a => Handle a
+nullHandle = Handle def
 
 type LayerName = String
 type ExtensionName = String
@@ -216,6 +224,8 @@ type Format = Enumerator VkFormat
 
 pattern UndefinedFormat = Enumerator VK_FORMAT_UNDEFINED :: Format
 pattern B8G8R8A8Srgb = Enumerator VK_FORMAT_B8G8R8A8_SRGB :: Format
+pattern R32G32B32SFloat = Enumerator VK_FORMAT_R32G32B32_SFLOAT :: Format
+pattern R32G32SFloat = Enumerator VK_FORMAT_R32G32_SFLOAT :: Format
 
 type ColorSpace = Enumerator VkColorSpaceKHR
 
@@ -594,12 +604,9 @@ destroySemaphore d s =
 
 type Fence = Handle VkFence
 
-nullFence :: Fence
-nullFence = Handle $ VkFence 0
-
 acquireNextImage :: Device -> Swapchain -> Semaphore -> IO Word
 acquireNextImage d sc s =
-  (wrapValue d $ wrapValue sc $ wrapConst maxBound $ wrapValue s $ wrapValue nullFence $ wrapOutPtr id)
+  (wrapValue d $ wrapValue sc $ wrapConst maxBound $ wrapValue s $ wrapValue nullHandle $ wrapOutPtr id)
   vkAcquireNextImageKHR
 
 beginCommandBuffer :: CommandBuffer -> IO ()
@@ -779,7 +786,16 @@ type PipelineCreateFlags = Flags VkPipelineCreateFlags
 
 type PipelineShaderStageCreateFlags = Flags VkPipelineShaderStageCreateFlags
 
-type ShaderStage = Enumerator VkShaderStageFlagBits
+type ShaderStage = Flags VkShaderStageFlagBits
+
+pattern Vertex = Flags VK_SHADER_STAGE_VERTEX_BIT :: ShaderStage
+pattern TessellationControl = Flags VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT :: ShaderStage
+pattern TessellationEvaluation = Flags VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT :: ShaderStage
+pattern Geometry = Flags VK_SHADER_STAGE_GEOMETRY_BIT :: ShaderStage
+pattern Fragment = Flags VK_SHADER_STAGE_FRAGMENT_BIT :: ShaderStage
+pattern Compute = Flags VK_SHADER_STAGE_COMPUTE_BIT :: ShaderStage
+pattern AllGraphics = Flags VK_SHADER_STAGE_ALL_GRAPHICS :: ShaderStage
+pattern All = Flags VK_SHADER_STAGE_ALL :: ShaderStage
 
 type ShaderModule = Handle VkShaderModule
 
@@ -821,6 +837,9 @@ type PipelineVertexInputStateCreateFlags = Flags VkPipelineVertexInputStateCreat
 
 type VertexInputRate = Enumerator VkVertexInputRate
 
+pattern PerVertex = Enumerator VK_VERTEX_INPUT_RATE_VERTEX :: VertexInputRate
+pattern PerInstance = Enumerator VK_VERTEX_INPUT_RATE_INSTANCE :: VertexInputRate
+
 data VertexInputBindingDescription = VertexInputBindingDescription { binding :: Word
                                                                    , stride :: Word
                                                                    , inputRate :: VertexInputRate
@@ -859,6 +878,18 @@ instance WithVk PipelineVertexInputStateCreateInfo VkPipelineVertexInputStateCre
 type PipelineInputAssemblyStateCreateFlags = Flags VkPipelineInputAssemblyStateCreateFlags
 
 type PrimitiveTopology = Enumerator VkPrimitiveTopology
+
+pattern PointList = Enumerator VK_PRIMITIVE_TOPOLOGY_POINT_LIST :: PrimitiveTopology
+pattern LineList = Enumerator VK_PRIMITIVE_TOPOLOGY_LINE_LIST :: PrimitiveTopology
+pattern LineStrip = Enumerator VK_PRIMITIVE_TOPOLOGY_LINE_STRIP :: PrimitiveTopology
+pattern TriangleList = Enumerator VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST :: PrimitiveTopology
+pattern TriangleStrip = Enumerator VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP :: PrimitiveTopology
+pattern TriangleFan = Enumerator VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN :: PrimitiveTopology
+pattern LineListWithAdjacency = Enumerator VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY :: PrimitiveTopology
+pattern LineStripWithAdjacency = Enumerator VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY :: PrimitiveTopology
+pattern TriangleListWithAdjacency = Enumerator VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY :: PrimitiveTopology
+pattern TriangleStripWithAdjacency = Enumerator VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY :: PrimitiveTopology
+pattern PatchList = Enumerator VK_PRIMITIVE_TOPOLOGY_PATCH_LIST :: PrimitiveTopology
 
 data PipelineInputAssemblyStateCreateInfo = PipelineInputAssemblyStateCreateInfo
   { flags :: PipelineInputAssemblyStateCreateFlags
@@ -908,30 +939,45 @@ instance WithVk Viewport VkViewport where
 
 data PipelineViewportStateCreateInfo = PipelineViewportStateCreateInfo
                                    { flags :: PipelineViewportStateCreateFlags
-                                   , viewports :: [Viewport]
-                                   , scissors :: [Rect2D]
+                                   -- TODO Either Int [Viewport]
+                                   , viewportCount :: Word
+                                   , viewports :: Maybe [Viewport]
+                                   , scissorCount :: Word
+                                   , scissors :: Maybe [Rect2D]
                                    }
   deriving (Eq, Ord, Show)
 
 instance WithVk PipelineViewportStateCreateInfo VkPipelineViewportStateCreateInfo where
-  withVk (PipelineViewportStateCreateInfo f v s) fn =
-    (wrapValue f $ wrapInArray v $ wrapInArray s fn)
+  withVk (PipelineViewportStateCreateInfo f vc v sc s) fn =
+    (wrapValue f $ wrapValue vc $ wrapOptArrayNoCount v $ wrapValue sc $ wrapOptArrayNoCount s fn)
     (VkPipelineViewportStateCreateInfo VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO nullPtr)
 
 type PipelineRasterizationStateCreateFlags = Flags VkPipelineRasterizationStateCreateFlags
 
 type PolygonMode = Enumerator VkPolygonMode
 
-type CullModeFlags = Flags VkCullModeFlags
+pattern Fill = Enumerator VK_POLYGON_MODE_FILL :: PolygonMode
+pattern Line = Enumerator VK_POLYGON_MODE_LINE :: PolygonMode
+pattern Point = Enumerator VK_POLYGON_MODE_POINT :: PolygonMode
+
+type CullMode = Flags VkCullModeFlags
+
+pattern Front = Flags VK_CULL_MODE_FRONT_BIT :: CullMode
+pattern Back = Flags VK_CULL_MODE_BACK_BIT :: CullMode
+pattern None = Flags VK_CULL_MODE_NONE :: CullMode
+pattern FrontAndBack = Flags VK_CULL_MODE_FRONT_AND_BACK :: CullMode
 
 type FrontFace = Enumerator VkFrontFace
+
+pattern CounterClockwise = Enumerator VK_FRONT_FACE_COUNTER_CLOCKWISE :: FrontFace
+pattern Clockwise = Enumerator VK_FRONT_FACE_CLOCKWISE :: FrontFace
 
 data PipelineRasterizationStateCreateInfo = PipelineRasterizationStateCreateInfo
                                             { flags :: PipelineRasterizationStateCreateFlags
                                             , depthClampEnable :: Bool
                                             , rasterizerDiscardEnable :: Bool
                                             , polygonMode :: PolygonMode
-                                            , cullMode :: CullModeFlags
+                                            , cullMode :: CullMode
                                             , frontFace :: FrontFace
                                             , depthBiasEnable :: Bool
                                             , depthBiasConstantFactor :: Float
@@ -963,7 +1009,7 @@ newtype SampleMask = SampleMask Word
 
 instance WithVk SampleMask VkSampleMask where
   withVk (SampleMask m) fn =
-    (wrapValue m fn)
+    wrapValue m fn
     VkSampleMask
 
 data PipelineMultisampleStateCreateInfo = PipelineMultisampleStateCreateInfo
@@ -992,7 +1038,25 @@ type PipelineDepthStencilStateCreateFlags = Flags VkPipelineDepthStencilStateCre
 
 type StencilOp = Enumerator VkStencilOp
 
+pattern Keep = Enumerator VK_STENCIL_OP_KEEP :: StencilOp
+pattern Zero = Enumerator VK_STENCIL_OP_ZERO :: StencilOp
+pattern Replace = Enumerator VK_STENCIL_OP_REPLACE :: StencilOp
+pattern IncrementAndClamp = Enumerator VK_STENCIL_OP_INCREMENT_AND_CLAMP :: StencilOp
+pattern DecrementAndClamp = Enumerator VK_STENCIL_OP_DECREMENT_AND_CLAMP :: StencilOp
+pattern Invert = Enumerator VK_STENCIL_OP_INVERT :: StencilOp
+pattern IncrementAndWrap = Enumerator VK_STENCIL_OP_INCREMENT_AND_WRAP :: StencilOp
+pattern DecrementAndWrap = Enumerator VK_STENCIL_OP_DECREMENT_AND_WRAP :: StencilOp
+
 type CompareOp = Enumerator VkCompareOp
+
+pattern Never = Enumerator VK_COMPARE_OP_NEVER :: CompareOp
+pattern Less = Enumerator VK_COMPARE_OP_LESS :: CompareOp
+pattern Equal = Enumerator VK_COMPARE_OP_EQUAL :: CompareOp
+pattern LessOrEqual = Enumerator VK_COMPARE_OP_LESS_OR_EQUAL :: CompareOp
+pattern Greater = Enumerator VK_COMPARE_OP_GREATER :: CompareOp
+pattern NotEqual = Enumerator VK_COMPARE_OP_NOT_EQUAL :: CompareOp
+pattern GreaterOrEqual = Enumerator VK_COMPARE_OP_GREATER_OR_EQUAL :: CompareOp
+pattern Always = Enumerator VK_COMPARE_OP_ALWAYS :: CompareOp
 
 data StencilOpState = StencilOpState { failOp :: StencilOp
                                      , passOp :: StencilOp
@@ -1051,7 +1115,15 @@ type BlendFactor = Enumerator VkBlendFactor
 
 type BlendOp = Enumerator VkBlendOp
 
-type ColorComponentFlags = Flags VkColorComponentFlags
+type ColorComponent = Flags VkColorComponentFlags
+
+pattern Red = Flags VK_COLOR_COMPONENT_R_BIT :: ColorComponent
+pattern Green = Flags VK_COLOR_COMPONENT_G_BIT :: ColorComponent
+pattern Blue = Flags VK_COLOR_COMPONENT_B_BIT :: ColorComponent
+pattern Alpha = Flags VK_COLOR_COMPONENT_A_BIT :: ColorComponent
+
+all :: ColorComponent
+all = Red .|. Green .|. Blue .|. Alpha
 
 data PipelineColorBlendAttachmentState = PipelineColorBlendAttachmentState
                                          { blendEnable :: Bool
@@ -1061,7 +1133,7 @@ data PipelineColorBlendAttachmentState = PipelineColorBlendAttachmentState
                                          , srcAlphaBlendFactor :: BlendFactor
                                          , dstAlphaBlendFactor :: BlendFactor
                                          , alphaBlendOp :: BlendOp
-                                         , colorWriteMask :: ColorComponentFlags
+                                         , colorWriteMask :: ColorComponent
                                          }
                                        deriving (Eq, Ord, Show)
 
@@ -1099,6 +1171,18 @@ instance WithVk PipelineColorBlendStateCreateInfo VkPipelineColorBlendStateCreat
 type PipelineDynamicStateCreateFlags = Flags VkPipelineDynamicStateCreateFlags
 
 type DynamicState = Enumerator VkDynamicState
+
+pattern DynamicViewport = Enumerator VK_DYNAMIC_STATE_VIEWPORT :: DynamicState
+viewport :: DynamicState
+viewport = DynamicViewport
+pattern Scissor = Enumerator VK_DYNAMIC_STATE_SCISSOR :: DynamicState
+pattern LineWidth = Enumerator VK_DYNAMIC_STATE_LINE_WIDTH :: DynamicState
+pattern DepthBias = Enumerator VK_DYNAMIC_STATE_DEPTH_BIAS :: DynamicState
+pattern BlendConstants = Enumerator VK_DYNAMIC_STATE_BLEND_CONSTANTS :: DynamicState
+pattern DepthBounds = Enumerator VK_DYNAMIC_STATE_DEPTH_BOUNDS :: DynamicState
+pattern StencilCompareMask = Enumerator VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK :: DynamicState
+pattern StencilWriteMask = Enumerator VK_DYNAMIC_STATE_STENCIL_WRITE_MASK :: DynamicState
+pattern StencilReference = Enumerator VK_DYNAMIC_STATE_STENCIL_REFERENCE :: DynamicState
 
 data PipelineDynamicStateCreateInfo = PipelineDynamicStateCreateInfo
                                       { flags :: PipelineDynamicStateCreateFlags
@@ -1185,15 +1269,13 @@ pattern UniformBufferDynamic = Enumerator VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNA
 pattern StorageBufferDynamic = Enumerator VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC :: DescriptorType
 pattern InputAttachment = Enumerator VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT :: DescriptorType
 
-type ShaderStageFlags = Flags VkShaderStageFlags
-
 type Sampler = Handle VkSampler
 
 data DescriptorSetLayoutBinding = DescriptorSetLayoutBinding
   { binding :: Word
   , descriptorType :: DescriptorType
   , descriptorCount :: Word
-  , stageFlags :: ShaderStageFlags
+  , stageFlags :: ShaderStage
   , immutableSamplers :: Maybe [Sampler]
   }
   deriving (Eq, Ord, Show)
@@ -1230,7 +1312,7 @@ createDescriptorSetLayout d ci =
   vkCreateDescriptorSetLayout
 
 data PushConstantRange = PushConstantRange
-  { stageFlags :: ShaderStageFlags
+  { stageFlags :: ShaderStage
   , offset :: Word
   , size :: Word
   }

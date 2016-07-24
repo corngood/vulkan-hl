@@ -122,7 +122,7 @@ wrapValue a g f = withVk a (g . f)
 wrapInPtr :: (WithVk a b, Storable b) => a -> (c -> IO d) -> (Ptr b -> c) -> IO d
 wrapInPtr a g f = withVk a (`with` (g . f))
 
-wrapOptPtr :: (WithVk a b, Storable b) => (Maybe a) -> (c -> IO d) -> (Ptr b -> c) -> IO d
+wrapOptPtr :: (WithVk a b, Storable b) => Maybe a -> (c -> IO d) -> (Ptr b -> c) -> IO d
 wrapOptPtr (Just a) g f = wrapInPtr a g f
 wrapOptPtr Nothing g f = g $ f nullPtr
 

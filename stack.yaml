@@ -6,52 +6,36 @@ packages:
   extra-dep: true
 - location: sdl2
   extra-dep: true
-- location:
-    git: https://github.com/ekmett/linear.git
-    commit: 7de2733b1d922a2717860df49b6090042b81ea35
-  extra-dep: true
 extra-deps:
-- HUnit-1.3.1.1
 - StateVar-1.1.0.4
 - adjunctions-4.3
-- ansi-terminal-0.6.2.3
-- ansi-wl-pprint-0.6.7.3
 - base-orphans-0.5.4
-- bifunctors-5.3
+- bifunctors-5.4.1
 - bytes-0.15.2
-- cereal-0.5.2.0
+- cereal-0.5.3.0
 - comonad-5
 - contravariant-1.4
 - distributive-0.5.0.2
-- exceptions-0.8.2.1
-- extensible-exceptions-0.1.1.4
+- exceptions-0.8.3
 - free-4.12.4
 - hashable-1.2.4.0
-- hostname-1.0
 - kan-extensions-5.0.1
 - lens-4.14
-- mtl-2.2.1
-- old-locale-1.0.0.7
+- linear-1.20.5
 - parallel-3.2.1.0
 - prelude-extras-0.4.0.3
 - primitive-0.6.1.0
 - profunctors-5.2
-- random-1.1
 - reflection-2.1.2
-- regex-base-0.93.2
-- regex-posix-0.95.2
-- scientific-0.3.4.6
-- semigroupoids-5.0.1
-- semigroups-0.18.1
+- scientific-0.3.4.9
+- semigroupoids-5.1
+- semigroups-0.18.2
 - stm-2.4.4.1
-- tagged-0.8.4
-- test-framework-0.8.1.1
-- test-framework-hunit-0.3.0.2
+- tagged-0.8.5
 - text-1.2.2.1
 - transformers-compat-0.5.1.4
 - unordered-containers-0.2.7.1
 - vector-0.11.0.0
 - vector-sized-0.3.2.0
 - void-0.7.1
-- xml-1.3.14
 resolver: ghc-8.0.1
