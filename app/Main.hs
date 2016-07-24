@@ -113,6 +113,11 @@ run window = do
         , framebuffers
         )
 
+  dsLayout <- createDescriptorSetLayout device $ DescriptorSetLayoutCreateInfo zeroBits
+    [DescriptorSetLayoutBinding 0 CombinedImageSampler 1 Fragment Nothing]
+
+  pipelineLayout <- createPipelineLayout device $ PipelineLayoutCreateInfo zeroBits [dsLayout] []
+
   showWindow window
 
   let loop = do

@@ -5,6 +5,7 @@
 {-# language PatternSynonyms #-}
 {-# language DataKinds #-}
 {-# language GeneralizedNewtypeDeriving #-}
+{-# language ScopedTypeVariables #-}
 
 module Graphics.Vulkan.Core where
 
@@ -100,8 +101,7 @@ physicalDevices i = wrapValue i wrapCountArray vkEnumeratePhysicalDevices
 
 type QueueFlags = Flags VkQueueFlags
 
-pattern GraphicsQueue :: QueueFlags
-pattern GraphicsQueue = Flags VK_QUEUE_GRAPHICS_BIT
+pattern GraphicsQueue = Flags VK_QUEUE_GRAPHICS_BIT :: QueueFlags
 
 data Extent2D = Extent2D { width :: Word
                          , height :: Word
@@ -194,8 +194,7 @@ getQueue d f i =
 
 type CommandPoolCreateFlags = Flags VkCommandPoolCreateFlags
 
-pattern CreateResetCommandBuffer :: CommandPoolCreateFlags
-pattern CreateResetCommandBuffer = Flags VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT
+pattern CreateResetCommandBuffer = Flags VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT :: CommandPoolCreateFlags
 
 data CommandPoolCreateInfo = CommandPoolCreateInfo { flags :: CommandPoolCreateFlags
                                                    , queueFamilyIndex :: Word
@@ -215,10 +214,8 @@ createCommandPool d ci =
 
 type Format = Enumerator VkFormat
 
-pattern UndefinedFormat :: Format
-pattern UndefinedFormat = Enumerator VK_FORMAT_UNDEFINED
-pattern B8G8R8A8Srgb :: Format
-pattern B8G8R8A8Srgb = Enumerator VK_FORMAT_B8G8R8A8_SRGB
+pattern UndefinedFormat = Enumerator VK_FORMAT_UNDEFINED :: Format
+pattern B8G8R8A8Srgb = Enumerator VK_FORMAT_B8G8R8A8_SRGB :: Format
 
 type ColorSpace = Enumerator VkColorSpaceKHR
 
@@ -268,8 +265,7 @@ surfaceCapabilities pd s =
 
 type CommandBufferLevel = Enumerator VkCommandBufferLevel
 
-pattern Primary :: CommandBufferLevel
-pattern Primary = Enumerator VK_COMMAND_BUFFER_LEVEL_PRIMARY
+pattern Primary = Enumerator VK_COMMAND_BUFFER_LEVEL_PRIMARY :: CommandBufferLevel
 
 type CommandBuffer = Handle VkCommandBuffer
 
@@ -287,25 +283,21 @@ type SwapchainCreateFlags = Flags VkSwapchainCreateFlagsKHR
 
 type ImageUsageFlags = Flags VkImageUsageFlagBits
 
-pattern ColorAttachment :: ImageUsageFlags
-pattern ColorAttachment = Flags VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+pattern ColorAttachment = Flags VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT :: ImageUsageFlags
 
 type SharingMode = Enumerator VkSharingMode
 
-pattern Exclusive :: SharingMode
-pattern Exclusive = Enumerator VK_SHARING_MODE_EXCLUSIVE
+pattern Exclusive = Enumerator VK_SHARING_MODE_EXCLUSIVE :: SharingMode
 
 type SurfaceTransformFlags = Flags VkSurfaceTransformFlagsKHR
 
 type CompositeAlphaFlags = Flags VkCompositeAlphaFlagBitsKHR
 
-pattern Opaque :: CompositeAlphaFlags
-pattern Opaque = Flags VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
+pattern Opaque = Flags VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR :: CompositeAlphaFlags
 
 type PresentMode = Enumerator VkPresentModeKHR
 
-pattern Fifo :: PresentMode
-pattern Fifo = Enumerator VK_PRESENT_MODE_FIFO_KHR
+pattern Fifo = Enumerator VK_PRESENT_MODE_FIFO_KHR :: PresentMode
 
 data SwapchainCreateInfo = SwapchainCreateInfo { flags :: SwapchainCreateFlags
                                                , surface :: Surface
@@ -378,16 +370,11 @@ type FNcreateDebugReportCallback =
 
 type DebugReportFlags = Flags VkDebugReportFlagsEXT
 
-pattern Error :: DebugReportFlags
-pattern Error = Flags VK_DEBUG_REPORT_ERROR_BIT_EXT
-pattern Warning :: DebugReportFlags
-pattern Warning = Flags VK_DEBUG_REPORT_WARNING_BIT_EXT
-pattern PerformanceWarning :: DebugReportFlags
-pattern PerformanceWarning = Flags VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT
-pattern Information :: DebugReportFlags
-pattern Information = Flags VK_DEBUG_REPORT_INFORMATION_BIT_EXT
-pattern Debug :: DebugReportFlags
-pattern Debug = Flags VK_DEBUG_REPORT_DEBUG_BIT_EXT
+pattern Error = Flags VK_DEBUG_REPORT_ERROR_BIT_EXT :: DebugReportFlags
+pattern Warning = Flags VK_DEBUG_REPORT_WARNING_BIT_EXT :: DebugReportFlags
+pattern PerformanceWarning = Flags VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT :: DebugReportFlags
+pattern Information = Flags VK_DEBUG_REPORT_INFORMATION_BIT_EXT :: DebugReportFlags
+pattern Debug = Flags VK_DEBUG_REPORT_DEBUG_BIT_EXT :: DebugReportFlags
 
 createDebugReportCallback :: Instance -> DebugReportFlags -> DebugReportCallbackFun -> IO DebugReportCallback
 createDebugReportCallback i (Flags flags) cb = do
@@ -409,19 +396,14 @@ type ImageViewCreateFlags = Flags VkImageViewCreateFlags
 
 type ImageViewType = Enumerator VkImageViewType
 
-pattern Type2D :: ImageViewType
-pattern Type2D = Enumerator VK_IMAGE_VIEW_TYPE_2D
+pattern Type2D = Enumerator VK_IMAGE_VIEW_TYPE_2D :: ImageViewType
 
 type ComponentSwizzle = Enumerator VkComponentSwizzle
 
-pattern R :: ComponentSwizzle
-pattern R = Enumerator VK_COMPONENT_SWIZZLE_R
-pattern G :: ComponentSwizzle
-pattern G = Enumerator VK_COMPONENT_SWIZZLE_G
-pattern B :: ComponentSwizzle
-pattern B = Enumerator VK_COMPONENT_SWIZZLE_B
-pattern A :: ComponentSwizzle
-pattern A = Enumerator VK_COMPONENT_SWIZZLE_A
+pattern R = Enumerator VK_COMPONENT_SWIZZLE_R :: ComponentSwizzle
+pattern G = Enumerator VK_COMPONENT_SWIZZLE_G :: ComponentSwizzle
+pattern B = Enumerator VK_COMPONENT_SWIZZLE_B :: ComponentSwizzle
+pattern A = Enumerator VK_COMPONENT_SWIZZLE_A :: ComponentSwizzle
 
 data ComponentMapping = ComponentMapping { red :: ComponentSwizzle
                                          , green :: ComponentSwizzle
@@ -440,8 +422,7 @@ instance WithVk ComponentMapping VkComponentMapping where
 
 type ImageAspectFlags = Flags VkImageAspectFlagBits
 
-pattern Color :: ImageAspectFlags
-pattern Color = Flags VK_IMAGE_ASPECT_COLOR_BIT
+pattern Color = Flags VK_IMAGE_ASPECT_COLOR_BIT :: ImageAspectFlags
 
 data ImageSubresourceRange = ImageSubresourceRange { aspectMask :: ImageAspectFlags
                                                    , baseMipLevel :: Word
@@ -484,32 +465,24 @@ type AttachmentDescriptionFlags = Flags VkAttachmentDescriptionFlagBits
 
 type SampleCountFlags = Flags VkSampleCountFlagBits
 
-pattern Sample1 :: SampleCountFlags
-pattern Sample1 = Flags VK_SAMPLE_COUNT_1_BIT
+pattern Sample1 = Flags VK_SAMPLE_COUNT_1_BIT :: SampleCountFlags
 
 type AttachmentLoadOp = Enumerator VkAttachmentLoadOp
 
-pattern Clear :: AttachmentLoadOp
-pattern Clear = Enumerator VK_ATTACHMENT_LOAD_OP_CLEAR
-pattern DontCareLoad :: AttachmentLoadOp
-pattern DontCareLoad = Enumerator VK_ATTACHMENT_LOAD_OP_DONT_CARE
+pattern Clear = Enumerator VK_ATTACHMENT_LOAD_OP_CLEAR :: AttachmentLoadOp
+pattern DontCareLoad = Enumerator VK_ATTACHMENT_LOAD_OP_DONT_CARE :: AttachmentLoadOp
 
 type AttachmentStoreOp = Enumerator VkAttachmentStoreOp
 
-pattern Store :: AttachmentStoreOp
-pattern Store = Enumerator VK_ATTACHMENT_STORE_OP_STORE
+pattern Store = Enumerator VK_ATTACHMENT_STORE_OP_STORE :: AttachmentStoreOp
 
-pattern DontCareStore :: AttachmentStoreOp
-pattern DontCareStore = Enumerator VK_ATTACHMENT_STORE_OP_DONT_CARE
+pattern DontCareStore = Enumerator VK_ATTACHMENT_STORE_OP_DONT_CARE :: AttachmentStoreOp
 
 type ImageLayout = Enumerator VkImageLayout
 
-pattern UndefinedLayout :: ImageLayout
-pattern UndefinedLayout = Enumerator VK_IMAGE_LAYOUT_UNDEFINED
-pattern ColorAttachmentOptimal :: ImageLayout
-pattern ColorAttachmentOptimal = Enumerator VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-pattern PresentSource :: ImageLayout
-pattern PresentSource = Enumerator VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+pattern UndefinedLayout = Enumerator VK_IMAGE_LAYOUT_UNDEFINED :: ImageLayout
+pattern ColorAttachmentOptimal = Enumerator VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL :: ImageLayout
+pattern PresentSource = Enumerator VK_IMAGE_LAYOUT_PRESENT_SRC_KHR :: ImageLayout
 
 data AttachmentDescription = AttachmentDescription { flags :: AttachmentDescriptionFlags
                                                    , format :: Format
@@ -536,8 +509,7 @@ type SubpassDescriptionFlags = Flags VkSubpassDescriptionFlags
 
 type PipelineBindPoint = Enumerator VkPipelineBindPoint
 
-pattern GraphicsBindPoint :: PipelineBindPoint
-pattern GraphicsBindPoint = Enumerator VK_PIPELINE_BIND_POINT_GRAPHICS
+pattern GraphicsBindPoint = Enumerator VK_PIPELINE_BIND_POINT_GRAPHICS :: PipelineBindPoint
 
 data AttachmentReference = AttachmentReference { attachment :: Word
                                                , layout :: ImageLayout
@@ -641,10 +613,8 @@ endCommandBuffer cb = wrapValue cb id vkEndCommandBuffer >>= check
 
 type AccessFlags = Flags VkAccessFlags
 
-pattern ColorAttachmentWrite :: AccessFlags
-pattern ColorAttachmentWrite = Flags VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
-pattern MemoryRead :: AccessFlags
-pattern MemoryRead = Flags VK_ACCESS_MEMORY_READ_BIT
+pattern ColorAttachmentWrite = Flags VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT :: AccessFlags
+pattern MemoryRead = Flags VK_ACCESS_MEMORY_READ_BIT :: AccessFlags
 
 data MemoryBarrier = MemoryBarrier { srcAccessMask :: AccessFlags
                                    , dstAccessMask :: AccessFlags
@@ -698,10 +668,8 @@ instance WithVk ImageMemoryBarrier VkImageMemoryBarrier where
 
 type PipelineStageFlags = Flags VkPipelineStageFlagBits
 
-pattern AllCommands :: PipelineStageFlags
-pattern AllCommands = Flags VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
-pattern BottomOfPipe :: PipelineStageFlags
-pattern BottomOfPipe = Flags VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT
+pattern AllCommands = Flags VK_PIPELINE_STAGE_ALL_COMMANDS_BIT :: PipelineStageFlags
+pattern BottomOfPipe = Flags VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT :: PipelineStageFlags
 
 type DependencyFlags = Flags VkDependencyFlags
 
@@ -763,8 +731,7 @@ instance WithVk RenderPassBeginInfo VkRenderPassBeginInfo where
 
 type SubpassContents = Enumerator VkSubpassContents
 
-pattern Inline :: SubpassContents
-pattern Inline = Enumerator VK_SUBPASS_CONTENTS_INLINE
+pattern Inline = Enumerator VK_SUBPASS_CONTENTS_INLINE :: SubpassContents
 
 cmdBeginRenderPass :: CommandBuffer -> RenderPassBeginInfo -> SubpassContents -> IO ()
 cmdBeginRenderPass cb bi sc =
@@ -1200,3 +1167,100 @@ createGraphicsPipelines d ci =
 
 createGraphicsPipeline :: Device -> GraphicsPipelineCreateInfo -> IO Pipeline
 createGraphicsPipeline d ci = head <$> createGraphicsPipelines d [ci]
+
+type PipelineLayoutCreateFlags = Flags VkPipelineLayoutCreateFlags
+
+type DescriptorSetLayoutCreateFlags = Flags VkDescriptorSetLayoutCreateFlags
+
+type DescriptorType = Enumerator VkDescriptorType
+
+pattern Sampler = Enumerator VK_DESCRIPTOR_TYPE_SAMPLER :: DescriptorType
+pattern CombinedImageSampler = Enumerator VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER :: DescriptorType
+pattern SampledImage = Enumerator VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE :: DescriptorType
+pattern StorageImage = Enumerator VK_DESCRIPTOR_TYPE_STORAGE_IMAGE :: DescriptorType
+pattern UniformTexelBuffer = Enumerator VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER :: DescriptorType
+pattern UniformBuffer = Enumerator VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER :: DescriptorType
+pattern StorageBuffer = Enumerator VK_DESCRIPTOR_TYPE_STORAGE_BUFFER :: DescriptorType
+pattern UniformBufferDynamic = Enumerator VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC :: DescriptorType
+pattern StorageBufferDynamic = Enumerator VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC :: DescriptorType
+pattern InputAttachment = Enumerator VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT :: DescriptorType
+
+type ShaderStageFlags = Flags VkShaderStageFlags
+
+type Sampler = Handle VkSampler
+
+data DescriptorSetLayoutBinding = DescriptorSetLayoutBinding
+  { binding :: Word
+  , descriptorType :: DescriptorType
+  , descriptorCount :: Word
+  , stageFlags :: ShaderStageFlags
+  , immutableSamplers :: Maybe [Sampler]
+  }
+  deriving (Eq, Ord, Show)
+
+instance WithVk DescriptorSetLayoutBinding VkDescriptorSetLayoutBinding where
+  withVk (DescriptorSetLayoutBinding b dt dc sf is) fn =
+    (wrapValue b $
+     wrapValue dt $
+     wrapValue dc $
+     wrapValue sf $
+     wrapOptArrayNoCount is fn)
+    VkDescriptorSetLayoutBinding
+
+data DescriptorSetLayoutCreateInfo = DescriptorSetLayoutCreateInfo
+  { flags :: DescriptorSetLayoutCreateFlags
+  , bindings :: [DescriptorSetLayoutBinding]
+  }
+  deriving (Eq, Ord, Show)
+
+instance WithVk DescriptorSetLayoutCreateInfo VkDescriptorSetLayoutCreateInfo where
+  withVk (DescriptorSetLayoutCreateInfo f b) fn =
+    (wrapValue f $
+     wrapInArray b fn)
+    (VkDescriptorSetLayoutCreateInfo VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO nullPtr)
+
+type DescriptorSetLayout = Handle VkDescriptorSetLayout
+
+createDescriptorSetLayout :: Device -> DescriptorSetLayoutCreateInfo -> IO DescriptorSetLayout
+createDescriptorSetLayout d ci =
+  (wrapValue d $
+   wrapInPtr ci $
+   wrapConst nullPtr $
+   wrapOutPtr id)
+  vkCreateDescriptorSetLayout
+
+data PushConstantRange = PushConstantRange
+  { stageFlags :: ShaderStageFlags
+  , offset :: Word
+  , size :: Word
+  }
+  deriving (Eq, Ord, Show)
+
+instance WithVk PushConstantRange VkPushConstantRange where
+  withVk (PushConstantRange sf o s) fn =
+    (wrapValue sf $
+     wrapValue o $
+     wrapValue s fn)
+    VkPushConstantRange
+
+data PipelineLayoutCreateInfo = PipelineLayoutCreateInfo
+  { flags :: PipelineLayoutCreateFlags
+  , setLayouts :: [DescriptorSetLayout]
+  , pushConstantRanges :: [PushConstantRange]
+  }
+  deriving (Eq, Ord, Show)
+
+instance WithVk PipelineLayoutCreateInfo VkPipelineLayoutCreateInfo where
+  withVk (PipelineLayoutCreateInfo f sl pcr) fn =
+    (wrapValue f $
+     wrapInArray sl $
+     wrapInArray pcr fn)
+    (VkPipelineLayoutCreateInfo VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO nullPtr)
+
+createPipelineLayout :: Device -> PipelineLayoutCreateInfo -> IO PipelineLayout
+createPipelineLayout d ci =
+  (wrapValue d $
+   wrapInPtr ci $
+   wrapConst nullPtr $
+   wrapOutPtr id)
+  vkCreatePipelineLayout
