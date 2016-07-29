@@ -12,6 +12,9 @@ category:            Web
 build-type:          Simple
 -- extra-source-files:
 cabal-version:       >=1.10
+data-dir:            data
+data-files:          tri-vert.spv
+                     tri-frag.spv
 
 library
   hs-source-dirs:      src
@@ -26,6 +29,7 @@ library
                      , vector >= 0.11.0.0
                      , vector-sized >= 0.1.0.0
                      , data-default >= 0.7
+                     , bytestring >= 0.10
                      , vulkan
   default-language:    Haskell2010
 
@@ -40,6 +44,7 @@ executable vulkan-hl-exe
                      , vector >= 0.11.0.0
                      , vector-sized >= 0.1.0.0
                      , data-default >= 0.7
+                     , bytestring >= 0.10
                      , vulkan
                      , vulkan-hl
   default-language:    Haskell2010

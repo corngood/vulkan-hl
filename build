@@ -1,0 +1,4 @@
+#! /usr/bin/sh
+set -e
+/home/david/git/Vulkan-LoaderAndValidationLayers/external/glslang/build/install/bin/glslangValidator -H -V -o data/tri-vert.spv tri.vert
+/home/david/git/Vulkan-LoaderAndValidationLayers/external/glslang/build/install/bin/glslangValidator -H -V -o data/tri-frag.spv tri.frag

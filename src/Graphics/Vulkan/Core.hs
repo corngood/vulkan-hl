@@ -11,6 +11,7 @@ module Graphics.Vulkan.Core where
 
 import Control.Monad
 import Data.Bits
+import Data.ByteString (ByteString)
 import Data.Default
 import Data.Int
 import Data.Vector.Storable.Sized as V hiding (head, length)
@@ -83,8 +84,8 @@ instance FromVk Extension VkExtensionProperties where
                            pure $ Extension n (fromIntegral version)
                        )
 
-hasFlag :: Bits a => a -> a -> Bool
-hasFlag a b = a .|. b /= zeroBits
+hasFlags :: Bits a => a -> a -> Bool
+hasFlags a b = a .&. b /= zeroBits
 
 type Instance = Handle VkInstance
 
@@ -1039,7 +1040,7 @@ type PipelineDepthStencilStateCreateFlags = Flags VkPipelineDepthStencilStateCre
 type StencilOp = Enumerator VkStencilOp
 
 pattern Keep = Enumerator VK_STENCIL_OP_KEEP :: StencilOp
-pattern Zero = Enumerator VK_STENCIL_OP_ZERO :: StencilOp
+pattern ZeroOp = Enumerator VK_STENCIL_OP_ZERO :: StencilOp
 pattern Replace = Enumerator VK_STENCIL_OP_REPLACE :: StencilOp
 pattern IncrementAndClamp = Enumerator VK_STENCIL_OP_INCREMENT_AND_CLAMP :: StencilOp
 pattern DecrementAndClamp = Enumerator VK_STENCIL_OP_DECREMENT_AND_CLAMP :: StencilOp
@@ -1111,9 +1112,52 @@ type PipelineColorBlendStateCreateFlags = Flags VkPipelineColorBlendStateCreateF
 
 type LogicOp = Enumerator VkLogicOp
 
+pattern ClearOp = Enumerator VK_LOGIC_OP_CLEAR :: LogicOp
+pattern And = Enumerator VK_LOGIC_OP_AND :: LogicOp
+pattern AndReverse = Enumerator VK_LOGIC_OP_AND_REVERSE :: LogicOp
+pattern Copy = Enumerator VK_LOGIC_OP_COPY :: LogicOp
+pattern AndInverted = Enumerator VK_LOGIC_OP_AND_INVERTED :: LogicOp
+pattern NoOp = Enumerator VK_LOGIC_OP_NO_OP :: LogicOp
+pattern Xor = Enumerator VK_LOGIC_OP_XOR :: LogicOp
+pattern Or = Enumerator VK_LOGIC_OP_OR :: LogicOp
+pattern Nor = Enumerator VK_LOGIC_OP_NOR :: LogicOp
+pattern Equivalent = Enumerator VK_LOGIC_OP_EQUIVALENT :: LogicOp
+pattern InvertOp = Enumerator VK_LOGIC_OP_INVERT :: LogicOp
+pattern OrReverse = Enumerator VK_LOGIC_OP_OR_REVERSE :: LogicOp
+pattern CopyInverted = Enumerator VK_LOGIC_OP_COPY_INVERTED :: LogicOp
+pattern OrInverted = Enumerator VK_LOGIC_OP_OR_INVERTED :: LogicOp
+pattern Nand = Enumerator VK_LOGIC_OP_NAND :: LogicOp
+pattern Set = Enumerator VK_LOGIC_OP_SET :: LogicOp
+
 type BlendFactor = Enumerator VkBlendFactor
 
+pattern Zero = Enumerator VK_BLEND_FACTOR_ZERO :: BlendFactor
+pattern One = Enumerator VK_BLEND_FACTOR_ONE :: BlendFactor
+pattern SrcColor = Enumerator VK_BLEND_FACTOR_SRC_COLOR :: BlendFactor
+pattern OneMinusSrcColor = Enumerator VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR :: BlendFactor
+pattern DstColor = Enumerator VK_BLEND_FACTOR_DST_COLOR :: BlendFactor
+pattern OneMinusDstColor = Enumerator VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR :: BlendFactor
+pattern SrcAlpha = Enumerator VK_BLEND_FACTOR_SRC_ALPHA :: BlendFactor
+pattern OneMinusSrcAlpha = Enumerator VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA :: BlendFactor
+pattern DstAlpha = Enumerator VK_BLEND_FACTOR_DST_ALPHA :: BlendFactor
+pattern OneMinusDstAlpha = Enumerator VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA :: BlendFactor
+pattern ConstantColor = Enumerator VK_BLEND_FACTOR_CONSTANT_COLOR :: BlendFactor
+pattern OneMinusConstantColor = Enumerator VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR :: BlendFactor
+pattern ConstantAlpha = Enumerator VK_BLEND_FACTOR_CONSTANT_ALPHA :: BlendFactor
+pattern OneMinusConstantAlpha = Enumerator VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA :: BlendFactor
+pattern SrcAlphaSaturate = Enumerator VK_BLEND_FACTOR_SRC_ALPHA_SATURATE :: BlendFactor
+pattern SrC1Color = Enumerator VK_BLEND_FACTOR_SRC1_COLOR :: BlendFactor
+pattern OneMinusSrC1Color = Enumerator VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR :: BlendFactor
+pattern SrC1Alpha = Enumerator VK_BLEND_FACTOR_SRC1_ALPHA :: BlendFactor
+pattern OneMinusSrC1Alpha = Enumerator VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA :: BlendFactor
+
 type BlendOp = Enumerator VkBlendOp
+
+pattern Add = Enumerator VK_BLEND_OP_ADD :: BlendOp
+pattern Subtract = Enumerator VK_BLEND_OP_SUBTRACT :: BlendOp
+pattern ReverseSubtract = Enumerator VK_BLEND_OP_REVERSE_SUBTRACT :: BlendOp
+pattern Min = Enumerator VK_BLEND_OP_MIN :: BlendOp
+pattern Max = Enumerator VK_BLEND_OP_MAX :: BlendOp
 
 type ColorComponent = Flags VkColorComponentFlags
 
@@ -1346,3 +1390,166 @@ createPipelineLayout d ci =
    wrapConst nullPtr $
    wrapOutPtr id)
   vkCreatePipelineLayout
+
+type ShaderModuleCreateFlags = Flags VkShaderModuleCreateFlags
+
+data ShaderModuleCreateInfo = ShaderModuleCreateInfo
+  { flags :: ShaderModuleCreateFlags
+  , code :: ByteString
+  }
+  deriving (Eq, Ord, Show)
+
+instance WithVk ShaderModuleCreateInfo VkShaderModuleCreateInfo where
+  withVk (ShaderModuleCreateInfo f c) fn =
+    (wrapValue f $
+     wrapByteString c fn)
+    (VkShaderModuleCreateInfo VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO nullPtr)
+
+createShaderModule :: Device -> ShaderModuleCreateInfo -> IO ShaderModule
+createShaderModule d ci =
+  (wrapValue d $
+   wrapInPtr ci $
+   wrapConst nullPtr $
+   wrapOutPtr id)
+  vkCreateShaderModule
+
+type BufferCreateFlags = Flags VkBufferCreateFlags
+
+type BufferUsage = Flags VkBufferUsageFlags
+
+pattern TransferSrc = Flags VK_BUFFER_USAGE_TRANSFER_SRC_BIT :: BufferUsage
+pattern TransferDst = Flags VK_BUFFER_USAGE_TRANSFER_DST_BIT :: BufferUsage
+-- pattern UniformTexelBuffer = Flags VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT :: BufferUsage
+pattern StorageTexelBuffer = Flags VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT :: BufferUsage
+-- pattern UniformBuffer = Flags VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT :: BufferUsage
+-- pattern StorageBuffer = Flags VK_BUFFER_USAGE_STORAGE_BUFFER_BIT :: BufferUsage
+pattern IndexBuffer = Flags VK_BUFFER_USAGE_INDEX_BUFFER_BIT :: BufferUsage
+pattern VertexBuffer = Flags VK_BUFFER_USAGE_VERTEX_BUFFER_BIT :: BufferUsage
+pattern IndirectBuffer = Flags VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT :: BufferUsage
+
+data BufferCreateInfo = BufferCreateInfo
+  { flags :: BufferCreateFlags
+  , size :: DeviceSize
+  , usage :: BufferUsage
+  , sharingMode :: SharingMode
+  , queueFamilyIndices :: [Word]
+  }
+  deriving (Eq, Ord, Show)
+
+instance WithVk BufferCreateInfo VkBufferCreateInfo where
+  withVk (BufferCreateInfo f s u sm qfi) fn =
+    (wrapValue f $
+     wrapValue s $
+     wrapValue u $
+     wrapValue sm $
+     wrapInArray qfi fn)
+    (VkBufferCreateInfo VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO nullPtr)
+
+createBuffer :: Device -> BufferCreateInfo -> IO Buffer
+createBuffer d ci =
+  (wrapValue d $
+   wrapInPtr ci $
+   wrapConst nullPtr $
+   wrapOutPtr id)
+  vkCreateBuffer
+
+data MemoryRequirements = MemoryRequirements
+  { size :: DeviceSize
+  , alignment :: DeviceSize
+  , memoryTypeBits :: Word
+  }
+  deriving (Eq, Ord, Show)
+
+instance FromVk MemoryRequirements VkMemoryRequirements where
+  fromVk (VkMemoryRequirements s a mtb) = MemoryRequirements <$> fromVk s <*> fromVk a <*> fromVk mtb
+
+memoryRequirements :: Device -> Buffer -> IO MemoryRequirements
+memoryRequirements d b =
+  (wrapValue d $
+   wrapValue b $
+   wrapOutPtr id)
+  vkGetBufferMemoryRequirements
+
+type MemoryProperty = Flags VkMemoryPropertyFlags
+
+pattern DeviceLocal = Flags VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT :: MemoryProperty
+pattern HostVisible = Flags VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT :: MemoryProperty
+pattern HostCoherent = Flags VK_MEMORY_PROPERTY_HOST_COHERENT_BIT :: MemoryProperty
+pattern HostCached = Flags VK_MEMORY_PROPERTY_HOST_CACHED_BIT :: MemoryProperty
+pattern LazilyAllocated = Flags VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT :: MemoryProperty
+
+data MemoryType = MemoryType
+  { propertyFlags :: MemoryProperty
+  , heapIndex :: Word
+  }
+  deriving (Eq, Ord, Show)
+
+instance FromVk MemoryType VkMemoryType where
+  fromVk (VkMemoryType pf hi) = MemoryType <$> fromVk pf <*> fromVk hi
+
+type MemoryHeapFlags = Flags VkMemoryHeapFlags
+
+data MemoryHeap = MemoryHeap
+  { size :: DeviceSize
+  , flags :: MemoryHeapFlags
+  }
+  deriving (Eq, Ord, Show)
+
+instance FromVk MemoryHeap VkMemoryHeap where
+  fromVk (VkMemoryHeap s f) = MemoryHeap <$> fromVk s <*> fromVk f
+
+data PhysicalDeviceMemoryProperties = PhysicalDeviceMemoryProperties
+  { memoryType :: [MemoryType]
+  , memoryHeaps :: [MemoryHeap]
+  }
+  deriving (Eq, Ord, Show)
+
+instance FromVk PhysicalDeviceMemoryProperties VkPhysicalDeviceMemoryProperties where
+  fromVk (VkPhysicalDeviceMemoryProperties mtc mt mhc mh) =
+    PhysicalDeviceMemoryProperties <$> fromLenVector mtc mt <*> fromLenVector mhc mh
+
+memoryProperties :: PhysicalDevice -> IO PhysicalDeviceMemoryProperties
+memoryProperties pd =
+  (wrapValue pd $
+   wrapOutPtr id)
+  vkGetPhysicalDeviceMemoryProperties
+
+type DeviceMemory = Handle VkDeviceMemory
+
+data MemoryAllocateInfo = MemoryAllocateInfo
+  { allocationSize :: DeviceSize
+  , memoryTypeIndex :: Word
+  }
+  deriving (Eq, Ord, Show)
+
+instance WithVk MemoryAllocateInfo VkMemoryAllocateInfo where
+  withVk (MemoryAllocateInfo as mti) fn =
+    (wrapValue as $
+     wrapValue mti fn)
+    (VkMemoryAllocateInfo VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO nullPtr)
+
+allocate :: Device -> MemoryAllocateInfo -> IO DeviceMemory
+allocate d mai =
+  (wrapValue d $
+   wrapInPtr mai $
+   wrapConst nullPtr $
+   wrapOutPtr id)
+  vkAllocateMemory
+
+type MemoryMapFlags = Flags VkMemoryMapFlags
+
+mapMemory :: Device -> DeviceMemory -> DeviceSize -> DeviceSize -> MemoryMapFlags -> IO (Ptr Void)
+mapMemory d dm o s f =
+  (wrapValue d $
+   wrapValue dm $
+   wrapValue o $
+   wrapValue s $
+   wrapValue f $
+   wrapOutPtr id)
+  vkMapMemory
+
+unmapMemory :: Device -> DeviceMemory -> IO ()
+unmapMemory d dm =
+  (wrapValue d $
+   wrapValue dm id)
+  vkUnmapMemory

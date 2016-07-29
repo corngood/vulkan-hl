@@ -7,7 +7,11 @@
 module Graphics.Vulkan.Internal.Marshal where
 
 import Data.Bits
+import Data.ByteString (ByteString)
+import Data.ByteString.Unsafe (unsafeUseAsCStringLen)
 import Data.Int
+import Data.Vector.Storable.Sized (Vector, toList)
+import Data.Void
 import Data.Word
 import Foreign.C
 import Foreign.Marshal
@@ -154,6 +158,18 @@ wrapOutArray n g f =
                     mapM fromVk a
                 )
 
+wrapByteString :: (Num l, Storable b) => ByteString -> (c -> IO d) -> (l -> Ptr b -> c) -> IO d
+wrapByteString a g f = unsafeUseAsCStringLen a (\(p, l) -> g $ f (fromIntegral l) $ castPtr p)
+
+fromVector :: (FromVk a b, Storable b) => Vector n b -> IO [a]
+fromVector = mapM fromVk . toList
+
+fromLenVector :: (FromVk a b, Storable b) => Word32 -> Vector n b -> IO [a]
+fromLenVector l a = take (fromIntegral l) <$> fromVector a
+
+fromArray :: (FromVk a b, Storable b) => Word32 -> Ptr b -> IO [a]
+fromArray l a = peekArray (fromIntegral l) a >>= mapM fromVk
+
 newtype Handle b = Handle b deriving(Eq, Ord, Show)
 instance FromVk (Handle b) b where fromVk = pure . Handle
 instance WithVk (Handle b) b where withVk (Handle a) f = f a
@@ -165,3 +181,5 @@ instance WithVk (Enumerator b) b where withVk (Enumerator a) f = f a
 newtype Flags b = Flags b deriving(Eq, Ord, Show, Read, Bits)
 instance FromVk (Flags b) b where fromVk = pure . Flags
 instance WithVk (Flags b) b where withVk (Flags a) f = f a
+
+instance FromVk (Ptr Void) (Ptr Void) where fromVk = pure

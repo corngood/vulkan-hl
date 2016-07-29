@@ -3,15 +3,20 @@
 
 module Main where
 
+import Prelude hiding (readFile)
+
 import Control.Exception
 import Control.Monad
 import Data.Bits
-import Data.Vector.Storable.Sized as V hiding (mapM, elem)
+import Data.ByteString (readFile)
+import Data.Vector.Storable.Sized as V (replicate)
 import Graphics.Vulkan as Vk
 import Linear.V2
 import SDL hiding (Surface)
 import SDL.Video.Vulkan
 import System.Environment
+
+import Paths_vulkan_hl
 
 findAndCreateDevice :: Instance -> Surface -> IO (PhysicalDevice, Word, Device, Queue, CommandPool)
 findAndCreateDevice inst surface = do
@@ -34,7 +39,7 @@ findAndCreateDevice inst surface = do
         findQueue _ [] = return Nothing
         findQueue i (q:qs) = do
           s <- queueFamilySupportsPresent d i surface
-          if hasFlag (flags (q :: QueueFamilyProperties)) GraphicsQueue && s
+          if flags (q :: QueueFamilyProperties) `hasFlags` GraphicsQueue && s
             then return $ Just (d, i)
             else findQueue (succ i) qs
 
@@ -117,11 +122,28 @@ run window = do
 
   pipelineLayout <- createPipelineLayout device $ PipelineLayoutCreateInfo zeroBits [dsLayout] []
 
+  memProp <- memoryProperties physicalDevice
+
+  buffer <- createBuffer device $ BufferCreateInfo zeroBits (3 * 5 * 4) VertexBuffer Exclusive []
+  memReq <- memoryRequirements device buffer
+
+  let memTypeIndex = findMemType 0 (memoryType memProp) memReq HostVisible
+      findMemType :: Word -> [MemoryType] -> MemoryRequirements -> MemoryProperty -> Word
+      findMemType i ((MemoryType p _):ms) (MemoryRequirements _ _ t) f | hasFlags p f && testBit t (fromIntegral i) = i
+      findMemType i (m:ms) mr f = findMemType (succ i) ms mr f
+
+  mem <- allocate device $ MemoryAllocateInfo (size (memReq :: MemoryRequirements)) memTypeIndex
+
+  vertexShader <- getDataFileName "tri-vert.spv" >>= readFile
+  fragmentShader <- getDataFileName "tri-frag.spv" >>= readFile
+  vertexShaderModule <- createShaderModule device $ ShaderModuleCreateInfo zeroBits vertexShader
+  fragmentShaderModule <- createShaderModule device $ ShaderModuleCreateInfo zeroBits fragmentShader
+
   pipeline <- createGraphicsPipeline device $
     GraphicsPipelineCreateInfo
     zeroBits
-    [ PipelineShaderStageCreateInfo zeroBits Vertex nullHandle "main" Nothing
-    , PipelineShaderStageCreateInfo zeroBits Fragment nullHandle "main" Nothing
+    [ PipelineShaderStageCreateInfo zeroBits Vertex vertexShaderModule "main" Nothing
+    , PipelineShaderStageCreateInfo zeroBits Fragment fragmentShaderModule "main" Nothing
     ]
     (PipelineVertexInputStateCreateInfo zeroBits
       [VertexInputBindingDescription 0 (3 * 5 * 4) PerVertex]
@@ -145,9 +167,9 @@ run window = do
       (StencilOpState Keep Keep Keep Always 0 0 0)
       (StencilOpState Keep Keep Keep Always 0 0 0)
       0 0)
-    (PipelineColorBlendStateCreateInfo zeroBits False zeroBits
-      [PipelineColorBlendAttachmentState False zeroBits zeroBits zeroBits zeroBits zeroBits zeroBits Vk.all]
-      0)
+    (PipelineColorBlendStateCreateInfo zeroBits False ClearOp
+      [PipelineColorBlendAttachmentState False Zero Zero Add Zero Zero Add Vk.all]
+      $ V.replicate 0)
     (Just $ PipelineDynamicStateCreateInfo zeroBits [viewport, Scissor])
     pipelineLayout
     renderPass
@@ -155,9 +177,21 @@ run window = do
     nullHandle
     (-1)
 
+  memPtr <- mapMemory device mem 0 (size (memReq :: MemoryRequirements)) zeroBits
+
   print ( dsLayout
         , pipelineLayout
+        , vertexShaderModule
+        , fragmentShaderModule
+        , pipeline
+        , memReq
+        , memProp
+        , memTypeIndex
+        , mem
+        , memPtr
         )
+
+  unmapMemory device mem
 
   showWindow window
 
