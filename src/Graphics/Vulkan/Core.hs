@@ -749,6 +749,65 @@ cmdBeginRenderPass cb bi sc =
 cmdEndRenderPass :: CommandBuffer -> IO ()
 cmdEndRenderPass cb = wrapValue cb id vkCmdEndRenderPass >>= check
 
+cmdBindPipeline :: CommandBuffer -> PipelineBindPoint -> Pipeline -> IO ()
+cmdBindPipeline cb pbp p =
+  (wrapValue cb $
+   wrapValue pbp $
+   wrapValue p id)
+  vkCmdBindPipeline
+
+cmdSetViewports :: CommandBuffer -> Word -> [Viewport] -> IO ()
+cmdSetViewports cb i vp =
+  (wrapValue cb $
+   wrapValue i $
+   wrapInArray vp id)
+  vkCmdSetViewport
+
+cmdSetViewport :: CommandBuffer -> Word -> Viewport -> IO ()
+cmdSetViewport cb i s = cmdSetViewports cb i [s]
+
+cmdSetScissors :: CommandBuffer -> Word -> [Rect2D] -> IO ()
+cmdSetScissors cb i s =
+  (wrapValue cb $
+   wrapValue i $
+   wrapInArray s id)
+  vkCmdSetScissor
+
+cmdSetScissor :: CommandBuffer -> Word -> Rect2D -> IO ()
+cmdSetScissor cb i vb = cmdSetScissors cb i [vb]
+
+cmdBindVertexBuffers :: CommandBuffer -> Word -> [(Buffer, DeviceSize)] -> IO ()
+cmdBindVertexBuffers cb i vb =
+  (wrapValue cb $
+   wrapValue i $
+   wrapInArray (fst <$> vb) $
+   wrapInArrayNoCount (snd <$> vb) id)
+  vkCmdBindVertexBuffers
+
+cmdBindVertexBuffer :: CommandBuffer -> Word -> Buffer -> DeviceSize -> IO ()
+cmdBindVertexBuffer cb i vb o = cmdBindVertexBuffers cb i [(vb, o)]
+
+type DescriptorSet = Handle VkDescriptorSet
+
+cmdBindDescriptorSets :: CommandBuffer -> PipelineBindPoint -> PipelineLayout -> Word -> [DescriptorSet] -> [Word] -> IO ()
+cmdBindDescriptorSets cb pbp pl fs ds dyo =
+  (wrapValue cb $
+   wrapValue pbp $
+   wrapValue pl $
+   wrapValue fs $
+   wrapInArray ds $
+   wrapInArray dyo id)
+  vkCmdBindDescriptorSets
+
+cmdDraw :: CommandBuffer -> Word -> Word -> Word -> Word -> IO ()
+cmdDraw cb vc ic fv fi =
+  (wrapValue cb $
+   wrapValue vc $
+   wrapValue ic $
+   wrapValue fv $
+   wrapValue fi id)
+  vkCmdDraw
+
 data SubmitInfo = SubmitInfo { waitSemaphores :: [(Semaphore, PipelineStageFlags)]
                              , commandBuffers :: [CommandBuffer]
                              , signalSemaphores :: [Semaphore]
@@ -1553,3 +1612,11 @@ unmapMemory d dm =
   (wrapValue d $
    wrapValue dm id)
   vkUnmapMemory
+
+bindBufferMemory :: Device -> Buffer -> DeviceMemory -> DeviceSize -> IO ()
+bindBufferMemory d b dm o =
+  (wrapValue d $
+   wrapValue b $
+   wrapValue dm $
+   wrapValue o id)
+  vkBindBufferMemory >>= check

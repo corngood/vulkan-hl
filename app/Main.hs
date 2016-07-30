@@ -10,6 +10,9 @@ import Control.Monad
 import Data.Bits
 import Data.ByteString (readFile)
 import Data.Vector.Storable.Sized as V (replicate)
+import Foreign.C (CFloat)
+import Foreign.Marshal (pokeArray)
+import Foreign.Ptr (castPtr)
 import Graphics.Vulkan as Vk
 import Linear.V2
 import SDL hiding (Surface)
@@ -118,21 +121,10 @@ run window = do
         )
 
   dsLayout <- createDescriptorSetLayout device $ DescriptorSetLayoutCreateInfo zeroBits
-    [DescriptorSetLayoutBinding 0 CombinedImageSampler 1 Fragment Nothing]
+    -- [DescriptorSetLayoutBinding 0 CombinedImageSampler 1 Fragment Nothing]
+    []
 
   pipelineLayout <- createPipelineLayout device $ PipelineLayoutCreateInfo zeroBits [dsLayout] []
-
-  memProp <- memoryProperties physicalDevice
-
-  buffer <- createBuffer device $ BufferCreateInfo zeroBits (3 * 5 * 4) VertexBuffer Exclusive []
-  memReq <- memoryRequirements device buffer
-
-  let memTypeIndex = findMemType 0 (memoryType memProp) memReq HostVisible
-      findMemType :: Word -> [MemoryType] -> MemoryRequirements -> MemoryProperty -> Word
-      findMemType i ((MemoryType p _):ms) (MemoryRequirements _ _ t) f | hasFlags p f && testBit t (fromIntegral i) = i
-      findMemType i (m:ms) mr f = findMemType (succ i) ms mr f
-
-  mem <- allocate device $ MemoryAllocateInfo (size (memReq :: MemoryRequirements)) memTypeIndex
 
   vertexShader <- getDataFileName "tri-vert.spv" >>= readFile
   fragmentShader <- getDataFileName "tri-frag.spv" >>= readFile
@@ -146,7 +138,7 @@ run window = do
     , PipelineShaderStageCreateInfo zeroBits Fragment fragmentShaderModule "main" Nothing
     ]
     (PipelineVertexInputStateCreateInfo zeroBits
-      [VertexInputBindingDescription 0 (3 * 5 * 4) PerVertex]
+      [VertexInputBindingDescription 0 (5 * 4) PerVertex]
       [ VertexInputAttributeDescription 0 0 R32G32B32SFloat 0
       , VertexInputAttributeDescription 1 0 R32G32SFloat (3 * 4)
       ])
@@ -177,21 +169,40 @@ run window = do
     nullHandle
     (-1)
 
+  memProp <- memoryProperties physicalDevice
+
+  buffer <- createBuffer device $ BufferCreateInfo zeroBits (3 * 5 * 4) VertexBuffer Exclusive []
+  memReq <- memoryRequirements device buffer
+
+  let memTypeIndex = findMemType 0 (memoryType memProp) memReq HostVisible
+      findMemType :: Word -> [MemoryType] -> MemoryRequirements -> MemoryProperty -> Word
+      findMemType i ((MemoryType p _):ms) (MemoryRequirements _ _ t) f | hasFlags p f && testBit t (fromIntegral i) = i
+      findMemType i (m:ms) mr f = findMemType (succ i) ms mr f
+
+  mem <- allocate device $ MemoryAllocateInfo (size (memReq :: MemoryRequirements)) memTypeIndex
+
   memPtr <- mapMemory device mem 0 (size (memReq :: MemoryRequirements)) zeroBits
+
+  pokeArray (castPtr memPtr)
+    ([-1, -1, 0.25, 0, 0,
+      1, -1, 0.25, 1, 0,
+      0, 1, 1, 0.5, 1] :: [CFloat])
+
+  unmapMemory device mem
+
+  bindBufferMemory device buffer mem 0
 
   print ( dsLayout
         , pipelineLayout
         , vertexShaderModule
         , fragmentShaderModule
         , pipeline
+        , buffer
         , memReq
         , memProp
         , memTypeIndex
         , mem
-        , memPtr
         )
-
-  unmapMemory device mem
 
   showWindow window
 
@@ -211,8 +222,13 @@ run window = do
                  (ImageSubresourceRange Color 0 1 0 1)
                 ]
         cmdBeginRenderPass commandBuffer (RenderPassBeginInfo renderPass framebuffer
-                                          (Rect2D (Offset2D 0 0) extent) [ClearColor $ FloatColor (V.replicate (0.3 * fromIntegral imageIndex))])
+                                          (Rect2D (Offset2D 0 0) extent) [ClearColor $ FloatColor (V.replicate 0.3)])
           Inline
+        cmdBindPipeline commandBuffer GraphicsBindPoint pipeline
+        cmdSetViewport commandBuffer 0 $ Viewport 0 0 (fromIntegral width) (fromIntegral height) 0 1
+        cmdSetScissor commandBuffer 0 $ Rect2D (Offset2D 0 0) (Extent2D width height)
+        cmdBindVertexBuffer commandBuffer 0 buffer 0
+        cmdDraw commandBuffer 3 1 0 0
         cmdEndRenderPass commandBuffer
         cmdPipelineBarrier commandBuffer AllCommands BottomOfPipe zeroBits
           [] [] [ImageMemoryBarrier ColorAttachmentWrite MemoryRead
