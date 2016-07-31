@@ -1620,3 +1620,44 @@ bindBufferMemory d b dm o =
    wrapValue dm $
    wrapValue o id)
   vkBindBufferMemory >>= check
+
+type DescriptorPool = Handle VkDescriptorPool
+
+type DescriptorPoolCreateFlags = Flags VkDescriptorPoolCreateFlags
+
+data DescriptorPoolSize = DescriptorPoolSize
+  { descriptorType :: DescriptorType
+  , descriptorCount :: Word
+  }
+  deriving (Eq, Ord, Show)
+
+instance WithVk DescriptorPoolSize VkDescriptorPoolSize where
+  withVk (DescriptorPoolSize dt dc) f =
+    (wrapValue dt $
+     wrapValue dc f)
+    VkDescriptorPoolSize
+
+data DescriptorPoolCreateInfo = DescriptorPoolCreateInfo
+  { flags :: DescriptorPoolCreateFlags
+  , maxSets :: Word
+  , poolSizes :: [DescriptorPoolSize]
+  }
+  deriving (Eq, Ord, Show)
+
+instance WithVk DescriptorPoolCreateInfo VkDescriptorPoolCreateInfo where
+  withVk (DescriptorPoolCreateInfo f ms ps) fn =
+    (wrapValue f $
+     wrapValue ms $
+     wrapInArray ps
+     fn)
+    (VkDescriptorPoolCreateInfo VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO nullPtr)
+
+createDescriptorPool :: Device -> DescriptorPoolCreateInfo -> IO DescriptorPool
+createDescriptorPool d ci =
+  (wrapValue d $
+   wrapInPtr ci $
+   wrapConst nullPtr $
+   wrapOutPtr id)
+  vkCreateDescriptorPool
+
+

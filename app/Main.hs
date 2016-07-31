@@ -121,8 +121,7 @@ run window = do
         )
 
   dsLayout <- createDescriptorSetLayout device $ DescriptorSetLayoutCreateInfo zeroBits
-    -- [DescriptorSetLayoutBinding 0 CombinedImageSampler 1 Fragment Nothing]
-    []
+    [DescriptorSetLayoutBinding 0 CombinedImageSampler 1 Fragment Nothing]
 
   pipelineLayout <- createPipelineLayout device $ PipelineLayoutCreateInfo zeroBits [dsLayout] []
 
@@ -203,6 +202,10 @@ run window = do
         , memTypeIndex
         , mem
         )
+
+  descriptorPool <- createDescriptorPool device $ DescriptorPoolCreateInfo zeroBits 1 [DescriptorPoolSize CombinedImageSampler 1]
+
+  print descriptorPool
 
   showWindow window
 
