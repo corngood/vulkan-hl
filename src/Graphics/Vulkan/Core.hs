@@ -100,8 +100,13 @@ destroyInstance :: Instance -> IO ()
 destroyInstance i = (wrapValue i $
                      wrapConst nullPtr id) vkDestroyInstance
 
-deviceExtensionProperties :: IO [Extension]
-deviceExtensionProperties = wrapCountArray $ vkEnumerateInstanceExtensionProperties nullPtr
+instanceExtensionProperties :: IO [Extension]
+instanceExtensionProperties = wrapCountArray $ vkEnumerateInstanceExtensionProperties nullPtr
+
+deviceExtensionProperties :: PhysicalDevice -> IO [Extension]
+deviceExtensionProperties p =
+  wrapValue p (wrapConst nullPtr wrapCountArray)
+  vkEnumerateDeviceExtensionProperties
 
 type PhysicalDevice = Handle VkPhysicalDevice
 
