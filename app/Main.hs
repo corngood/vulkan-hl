@@ -9,7 +9,8 @@ import Control.Exception
 import Control.Monad
 import Data.Bits
 import Data.ByteString (readFile)
-import Data.Vector.Storable.Sized as V (replicate)
+import qualified Data.Vector.Storable.Sized as V (replicate)
+import Data.Word
 import Foreign.C (CFloat)
 import Foreign.Marshal (pokeArray)
 import Foreign.Ptr (castPtr)
@@ -47,7 +48,7 @@ findAndCreateDevice inst surface = do
             else findQueue (succ i) qs
 
 findSurfaceFormat :: [SurfaceFormat] -> SurfaceFormat
-findSurfaceFormat [SurfaceFormat UndefinedFormat cs] = SurfaceFormat B8G8R8A8Srgb cs
+findSurfaceFormat [SurfaceFormat Undefined cs] = SurfaceFormat B8G8R8A8Srgb cs
 findSurfaceFormat (sf:_) = sf
 findSurfaceFormat [] = error "no surface format"
 
@@ -82,11 +83,10 @@ run window = do
   (physicalDevice, qf, device, queue, commandPool) <- findAndCreateDevice inst surface
   surfaceFormat <- findSurfaceFormat <$> surfaceFormats physicalDevice surface
   surfaceCaps <- surfaceCapabilities physicalDevice surface
-  commandBuffer <- allocateCommandBuffer device commandPool Primary
   extent@(Extent2D width height) <- swapchainExtents window surfaceCaps
   let imageCount = swapchainImageCount surfaceCaps
   swapchain <- createSwapchain device (SwapchainCreateInfo zeroBits surface imageCount surfaceFormat
-                                       extent 1 ColorAttachment Exclusive
+                                       extent 1 ImageColorAttachment Exclusive
                                        [qf] (currentTransform surfaceCaps) Opaque
                                        Fifo True)
   images <- swapchainImages device swapchain
@@ -108,7 +108,6 @@ run window = do
         , queue
         , commandPool
         , surfaceFormat
-        , commandBuffer
         , surfaceCaps
         , extent
         , imageCount
@@ -173,12 +172,13 @@ run window = do
   buffer <- createBuffer device $ BufferCreateInfo zeroBits (3 * 5 * 4) VertexBuffer Exclusive []
   memReq <- memoryRequirements device buffer
 
-  let memTypeIndex = findMemType 0 (memoryType memProp) memReq HostVisible
-      findMemType :: Word -> [MemoryType] -> MemoryRequirements -> MemoryProperty -> Word
-      findMemType i ((MemoryType p _):ms) (MemoryRequirements _ _ t) f | hasFlags p f && testBit t (fromIntegral i) = i
-      findMemType i (m:ms) mr f = findMemType (succ i) ms mr f
+  let findMemType :: MemoryRequirements -> MemoryProperty -> Word
+      findMemType mr f = find 0 (memoryType memProp) mr f
+        where
+          find i ((MemoryType p _):ms) (MemoryRequirements _ _ t) f | hasFlags p f && testBit t (fromIntegral i) = i
+          find i (m:ms) mr f = find (succ i) ms mr f
 
-  mem <- allocate device $ MemoryAllocateInfo (size (memReq :: MemoryRequirements)) memTypeIndex
+  mem <- allocate device $ MemoryAllocateInfo (size (memReq :: MemoryRequirements)) $ findMemType memReq HostVisible
 
   memPtr <- mapMemory device mem 0 (size (memReq :: MemoryRequirements)) zeroBits
 
@@ -189,7 +189,7 @@ run window = do
 
   unmapMemory device mem
 
-  bindBufferMemory device buffer mem 0
+  bindMemory device buffer mem 0
 
   print ( dsLayout
         , pipelineLayout
@@ -199,15 +199,101 @@ run window = do
         , buffer
         , memReq
         , memProp
-        , memTypeIndex
         , mem
         )
 
   descriptorPool <- createDescriptorPool device $ DescriptorPoolCreateInfo zeroBits 1 [DescriptorPoolSize CombinedImageSampler 1]
 
-  print descriptorPool
+  descriptorSet <- allocateDescriptorSet device descriptorPool dsLayout
+
+  sampler <- createSampler device $ SamplerCreateInfo
+    zeroBits
+    LinearFilter
+    LinearFilter
+    LinearMip
+    Repeat
+    Repeat
+    Repeat
+    0
+    False
+    0
+    False
+    Always
+    0
+    0
+    FloatOpaqueWhite
+    False
+
+  image <- createImage device $ ImageCreateInfo
+    zeroBits
+    Dim2
+    B8G8R8A8UNorm
+    (Extent3D 4 4 1)
+    1
+    1
+    Samples1
+    Linear
+    ImageSampled
+    Exclusive
+    []
+    Preinitialized
+
+  memReq <- memoryRequirements device image
+
+  let memSize = size (memReq :: MemoryRequirements)
+
+  mem <- allocate device $ MemoryAllocateInfo memSize $ findMemType memReq HostVisible
+
+  memPtr <- mapMemory device mem 0 memSize zeroBits
+
+  pokeArray (castPtr memPtr) $ replicate (fromIntegral memSize) (255 :: Word8)
+
+  unmapMemory device mem
+
+  bindMemory device image mem 0
+
+  commandBuffer <- allocateCommandBuffer device commandPool Primary
+
+  beginCommandBuffer commandBuffer
+
+  cmdPipelineBarrier commandBuffer TopOfPipe TopOfPipe zeroBits [] []
+    [ImageMemoryBarrier HostWrite ShaderRead Preinitialized ShaderReadOnlyOptimal ignored ignored image $
+      ImageSubresourceRange Color 0 1 0 1]
+
+  endCommandBuffer commandBuffer
+
+  queueSubmit queue [SubmitInfo [] [commandBuffer] []] nullHandle
+  queueWaitIdle queue
+
+  imageView <- createImageView device $ ImageViewCreateInfo
+    zeroBits
+    image
+    Type2D
+    B8G8R8A8UNorm
+    (ComponentMapping R G B A)
+    (ImageSubresourceRange Color 0 1 0 1)
+
+  -- freeCommandBuffer
+
+  updateDescriptorSets device
+    [ WriteDescriptorSet descriptorSet 0 0 1 CombinedImageSampler
+      (Just [DescriptorImageInfo sampler imageView ShaderReadOnlyOptimal])
+      Nothing
+      Nothing
+    ] []
+
+  print ( descriptorPool
+        , descriptorSet
+        , sampler
+        , image
+        , memReq
+        , mem
+        , imageView
+        )
 
   showWindow window
+
+  commandBuffer <- allocateCommandBuffer device commandPool Primary
 
   let loop = do
         semaphore <- createSemaphore device
@@ -228,6 +314,7 @@ run window = do
                                           (Rect2D (Offset2D 0 0) extent) [ClearColor $ FloatColor (V.replicate 0.3)])
           Inline
         cmdBindPipeline commandBuffer GraphicsBindPoint pipeline
+        cmdBindDescriptorSets commandBuffer GraphicsBindPoint pipelineLayout 0 [descriptorSet] []
         cmdSetViewport commandBuffer 0 $ Viewport 0 0 (fromIntegral width) (fromIntegral height) 0 1
         cmdSetScissor commandBuffer 0 $ Rect2D (Offset2D 0 0) (Extent2D width height)
         cmdBindVertexBuffer commandBuffer 0 buffer 0
