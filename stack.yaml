@@ -4,7 +4,9 @@ packages:
 - sdl2-vulkan
 - location: vulkan
   extra-dep: true
-- location: sdl2
+- location:
+    git: https://github.com/haskell-game/sdl2.git
+    commit: c2c10ea3dbf34aa5c4e50186dbad313e11e00b0f
   extra-dep: true
 extra-deps:
 - StateVar-1.1.0.4

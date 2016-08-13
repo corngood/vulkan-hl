@@ -22,6 +22,7 @@ library
                      , Graphics.Vulkan.Core
   other-modules:       Graphics.Vulkan.Internal.Marshal
                      , Graphics.Vulkan.Internal.TH
+  ghc-options:         -Wall -Werror
   build-depends:       base >= 4.7 && < 5
                      , sdl2 >= 2.1.1
                      , sdl2-vulkan >= 0.1
@@ -30,13 +31,14 @@ library
                      , vector-sized >= 0.1.0.0
                      , data-default >= 0.7
                      , bytestring >= 0.10
+                     , mtl >= 2.2
                      , vulkan
   default-language:    Haskell2010
 
 executable vulkan-hl-exe
   hs-source-dirs:      app
   main-is:             Main.hs
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  ghc-options:         -Wall -Werror -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , linear >= 1.20.5
                      , sdl2 >= 2.1.1
@@ -45,6 +47,7 @@ executable vulkan-hl-exe
                      , vector-sized >= 0.1.0.0
                      , data-default >= 0.7
                      , bytestring >= 0.10
+                     , mtl >= 2.2
                      , vulkan
                      , vulkan-hl
   default-language:    Haskell2010
@@ -55,7 +58,7 @@ test-suite vulkan-hl-test
   main-is:             Spec.hs
   build-depends:       base
                      , vulkan-hl
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  ghc-options:         -Wall -Werror -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
 
 source-repository head
