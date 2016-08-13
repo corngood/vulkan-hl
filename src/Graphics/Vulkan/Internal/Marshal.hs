@@ -158,7 +158,7 @@ wrapOutArray n g f =
                     mapM fromVk a
                 )
 
-wrapByteString :: (Num l, Storable b) => ByteString -> (c -> IO d) -> (l -> Ptr b -> c) -> IO d
+wrapByteString :: Num l => ByteString -> (c -> IO d) -> (l -> Ptr b -> c) -> IO d
 wrapByteString a g f = unsafeUseAsCStringLen a (\(p, l) -> g $ f (fromIntegral l) $ castPtr p)
 
 fromVector :: (FromVk a b, Storable b) => Vector n b -> IO [a]
