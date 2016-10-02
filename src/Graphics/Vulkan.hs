@@ -1,8 +1,17 @@
 module Graphics.Vulkan
   ( InstanceM
+  , DeviceM
+  , OwnedBy
   , withInstance
   , createDebugReportCallback
   , createSurface
+  , physicalDevices
+  , queueFamilyProperties
+  , queueFamilySupportsPresent
+  , surfaceFormats
+  , withDevice
+  , getQueue
+  , createCommandPool
   , module Graphics.Vulkan.Types
   ) where
 
@@ -14,15 +23,40 @@ import Graphics.Vulkan.Internal
 import Graphics.Vulkan.Types
 import qualified Graphics.Vulkan.Core as Core
 
-withInstance :: MonadIO m => InstanceCreateInfo -> InstanceM m a -> m a
+withInstance :: MonadIO m => InstanceCreateInfo -> InstanceM x m a -> m a
 withInstance ci (InstanceM m) = do
   i <- liftIO $ Core.createInstance ci
   a <- runReaderT m i
   liftIO $ Core.destroyInstance i
   pure a
 
-createDebugReportCallback :: MonadIO m => DebugReportFlags -> DebugReportCallbackFun -> InstanceM m DebugReportCallback
+createDebugReportCallback :: MonadIO m => DebugReportFlags -> DebugReportCallbackFun -> InstanceM x m DebugReportCallback
 createDebugReportCallback = liftR2 Core.createDebugReportCallback
 
-createSurface :: MonadIO m => Window -> InstanceM m Surface
-createSurface = liftR1 $ flip Core.createSurface
+createSurface :: MonadIO m => Window -> InstanceM x m (OwnedBy x Surface)
+createSurface w = OwnedBy <$> liftR0 (Core.createSurface w)
+
+physicalDevices :: MonadIO m => InstanceM x m [OwnedBy x PhysicalDevice]
+physicalDevices = fmap OwnedBy <$> liftR0 Core.physicalDevices
+
+queueFamilyProperties :: MonadIO m => OwnedBy x PhysicalDevice -> InstanceM x m [QueueFamilyProperties]
+queueFamilyProperties (OwnedBy pd) = liftIO (Core.queueFamilyProperties pd)
+
+queueFamilySupportsPresent :: MonadIO m => OwnedBy x PhysicalDevice -> Word -> OwnedBy x Surface -> InstanceM x m Bool
+queueFamilySupportsPresent (OwnedBy pd) qi (OwnedBy s) = liftIO (Core.queueFamilySupportsPresent pd qi s)
+
+surfaceFormats :: MonadIO m => OwnedBy x PhysicalDevice -> OwnedBy x Surface -> InstanceM x m [SurfaceFormat]
+surfaceFormats (OwnedBy pd) (OwnedBy s) = liftIO (Core.surfaceFormats pd s)
+
+withDevice :: MonadIO m => OwnedBy y PhysicalDevice -> DeviceCreateInfo -> DeviceM x (InstanceM y m) a -> InstanceM y m a
+withDevice (OwnedBy pd) ci (DeviceM m) = do
+  i <- liftIO $ Core.createDevice pd ci
+  a <- runReaderT m i
+  -- liftIO $ Core.destroyDevice i
+  pure a
+
+getQueue :: MonadIO m => Word -> Word -> DeviceM x m Queue
+getQueue = liftR2 Core.getQueue
+
+createCommandPool :: MonadIO m => CommandPoolCreateInfo -> DeviceM x m CommandPool
+createCommandPool = liftR1 Core.createCommandPool
