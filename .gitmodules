@@ -4,3 +4,6 @@
 [submodule "vulkan"]
 	path = vulkan
 	url = git@github.com:corngood/vulkan.git
+[submodule "SDL_vulkan"]
+	path = SDL_vulkan
+	url = git@github.com:corngood/SDL_vulkan.git

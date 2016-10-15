@@ -5,7 +5,7 @@
 mkDerivation {
   pname = "vulkan-hl";
   version = "0.1.0.0";
-  src = if lib.inNixShell then null else ./.;
+  src = ./.;
   isLibrary = true;
   isExecutable = true;
   libraryHaskellDepends = [
