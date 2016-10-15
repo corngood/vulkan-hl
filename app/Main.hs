@@ -1,5 +1,6 @@
 {-# language OverloadedStrings #-}
 {-# language DuplicateRecordFields #-}
+{-# options_ghc -Wno-name-shadowing #-}
 
 module Main where
 
