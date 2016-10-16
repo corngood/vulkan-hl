@@ -1113,6 +1113,7 @@ type MemoryHeapFlags = Flags VkMemoryHeapFlags
 
 data MemoryHeap = MemoryHeap
   { size :: DeviceSize
+
   , flags :: MemoryHeapFlags
   }
   deriving (Eq, Ord, Show)

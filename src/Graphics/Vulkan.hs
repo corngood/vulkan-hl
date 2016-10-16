@@ -5,10 +5,12 @@ module Graphics.Vulkan
   , withInstance
   , createDebugReportCallback
   , createSurface
+  , createSwapchain
   , physicalDevices
   , queueFamilyProperties
   , queueFamilySupportsPresent
   , surfaceFormats
+  , surfaceCapabilities
   , withDevice
   , getQueue
   , createCommandPool
@@ -36,6 +38,9 @@ createDebugReportCallback = liftR2 Core.createDebugReportCallback
 createSurface :: MonadIO m => Window -> InstanceM x m (OwnedBy x Surface)
 createSurface w = OwnedBy <$> liftR0 (Core.createSurface w)
 
+createSwapchain :: MonadIO m => SwapchainCreateInfo -> DeviceM x m (OwnedBy x Swapchain)
+createSwapchain ci = OwnedBy <$> liftR1 Core.createSwapchain ci
+
 physicalDevices :: MonadIO m => InstanceM x m [OwnedBy x PhysicalDevice]
 physicalDevices = fmap OwnedBy <$> liftR0 Core.physicalDevices
 
@@ -47,6 +52,9 @@ queueFamilySupportsPresent (OwnedBy pd) qi (OwnedBy s) = liftIO (Core.queueFamil
 
 surfaceFormats :: MonadIO m => OwnedBy x PhysicalDevice -> OwnedBy x Surface -> InstanceM x m [SurfaceFormat]
 surfaceFormats (OwnedBy pd) (OwnedBy s) = liftIO (Core.surfaceFormats pd s)
+
+surfaceCapabilities :: MonadIO m => OwnedBy x PhysicalDevice -> OwnedBy x Surface -> InstanceM x m SurfaceCapabilities
+surfaceCapabilities (OwnedBy pd) (OwnedBy s) = liftIO (Core.surfaceCapabilities pd s)
 
 withDevice :: MonadIO m => OwnedBy y PhysicalDevice -> DeviceCreateInfo -> DeviceM x (InstanceM y m) a -> InstanceM y m a
 withDevice (OwnedBy pd) ci (DeviceM m) = do

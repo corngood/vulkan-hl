@@ -20,7 +20,9 @@ library
   hs-source-dirs:      src
   exposed-modules:     Graphics.Vulkan
                      , Graphics.Vulkan.Core
-  other-modules:       Graphics.Vulkan.Internal.Marshal
+                     , Graphics.Vulkan.Types
+  other-modules:       Graphics.Vulkan.Internal
+                     , Graphics.Vulkan.Internal.Marshal
                      , Graphics.Vulkan.Internal.TH
   ghc-options:         -Wall -Werror
   build-depends:       base >= 4.7 && < 5

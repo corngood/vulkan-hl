@@ -10,6 +10,7 @@ import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Reader.Class
+import Control.Monad.Trans
 import Data.Bits
 import Data.ByteString (readFile)
 import qualified Data.Vector.Storable.Sized as V (replicate)
@@ -28,7 +29,7 @@ import Paths_vulkan_hl
 
 findAndCreateDevice
   :: MonadIO m
-  => (OwnedBy y Surface)
+  => OwnedBy y Surface
   -> ((OwnedBy y PhysicalDevice, Word, Device, Queue, CommandPool)-> DeviceM x (InstanceM y m) a)
   -> InstanceM y m a
 findAndCreateDevice surface inner = do
@@ -91,15 +92,15 @@ run window = do
       (\f ot o l mc lp m -> print (f, ot, o, l, mc, lp, m) >> return False)
     surface <- Vk.createSurface window
     findAndCreateDevice surface $ \(physicalDevice, qf, device, queue, commandPool) -> do
-      surfaceFormat <- findSurfaceFormat <$> Vk.surfaceFormats physicalDevice surface
+      surfaceFormat <- lift $ findSurfaceFormat <$> Vk.surfaceFormats physicalDevice surface
+      surfaceCaps <- lift $ Vk.surfaceCapabilities physicalDevice surface
+      extent@(Extent2D width height) <- liftIO $ swapchainExtents window surfaceCaps
+      let imageCount = swapchainImageCount surfaceCaps
+      swapchain <- Vk.createSwapchain (SwapchainCreateInfo zeroBits surface' imageCount surfaceFormat
+                                        extent 1 ImageColorAttachment Exclusive
+                                        [qf] (currentTransform surfaceCaps) Opaque
+                                        Fifo True)
       liftIO $ do
-        surfaceCaps <- surfaceCapabilities physicalDevice surface
-        extent@(Extent2D width height) <- swapchainExtents window surfaceCaps
-        let imageCount = swapchainImageCount surfaceCaps
-        swapchain <- createSwapchain device (SwapchainCreateInfo zeroBits surface imageCount surfaceFormat
-                                            extent 1 ImageColorAttachment Exclusive
-                                            [qf] (currentTransform surfaceCaps) Opaque
-                                            Fifo True)
         images <- swapchainImages device swapchain
         imageViews <- mapM
           (\image -> createImageView device $ ImageViewCreateInfo zeroBits image Type2D
@@ -178,15 +179,15 @@ run window = do
           nullHandle
           (-1)
 
-        memProp <- memoryProperties physicalDevice
+        memProp <- memoryProperties physicalDevice'
 
         buffer <- createBuffer device $ BufferCreateInfo zeroBits (3 * 5 * 4) VertexBuffer Exclusive []
         memReq <- memoryRequirements device buffer
 
         let findMemType :: MemoryRequirements -> MemoryProperty -> Word
-            findMemType mr f = find 0 (memoryType memProp) mr f
+            findMemType mr = find 0 (memoryType memProp) mr
               where
-                find i ((MemoryType p _):_) (MemoryRequirements _ _ t) f | hasFlags p f && testBit t (fromIntegral i) = i
+                find i (MemoryType p _:_) (MemoryRequirements _ _ t) f | hasFlags p f && testBit t (fromIntegral i) = i
                 find i (_:ms) mr f = find (succ i) ms mr f
                 find _ _ _ _ = undefined
 

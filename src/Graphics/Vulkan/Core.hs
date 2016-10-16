@@ -3,7 +3,6 @@
 {-# language TypeSynonymInstances #-}
 {-# language DuplicateRecordFields #-}
 {-# language DataKinds #-}
-{-# language GeneralizedNewtypeDeriving #-}
 {-# language ScopedTypeVariables #-}
 {-# options_ghc -Wno-name-shadowing -Wno-orphans #-}
 
