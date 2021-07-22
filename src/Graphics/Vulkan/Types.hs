@@ -41,7 +41,7 @@ data Extension = Extension { extensionName :: ExtensionName
 
 type Instance = Handle VkInstance
 
-type PhysicalDevice = Handle VkPhysicalDevice
+type PhysicalDevice i = Handle VkPhysicalDevice
 
 type QueueFlags = Flags VkQueueFlags
 
@@ -65,7 +65,7 @@ data QueueFamilyProperties = QueueFamilyProperties { flags :: QueueFlags
                                                    }
                            deriving (Eq, Ord, Show)
 
-type Surface = Handle VkSurfaceKHR
+type Surface i = Handle VkSurfaceKHR
 
 data QueueCreateInfo = QueueCreateInfo { queueCreateFamily :: Word
                                        , queuePriorities :: [Float]
@@ -331,22 +331,24 @@ type PresentMode = Enumerator VkPresentModeKHR
 
 pattern Fifo = Enumerator VK_PRESENT_MODE_FIFO_KHR :: PresentMode
 
-data SwapchainCreateInfo = SwapchainCreateInfo { flags :: SwapchainCreateFlags
-                                               , surface :: Surface
-                                               , minImageCount :: Word
-                                               , imageFormat :: SurfaceFormat
-                                               , imageExtent :: Extent2D
-                                               , imageArrayLayers :: Word
-                                               , imageUsage :: ImageUsage
-                                               , imageSharingMode :: SharingMode
-                                               , queueFamilyIndices :: [Word]
-                                               , preTransform :: SurfaceTransformFlags
-                                               , compositeAlpha :: CompositeAlphaFlags
-                                               , presentMode :: PresentMode
-                                               , clipped :: Bool
-                                               }
+data SwapchainCreateInfo i = SwapchainCreateInfo
+  { flags :: SwapchainCreateFlags
+  , surface :: Surface i
+  , minImageCount :: Word
+  , imageFormat :: SurfaceFormat
+  , imageExtent :: Extent2D
+  , imageArrayLayers :: Word
+  , imageUsage :: ImageUsage
+  , imageSharingMode :: SharingMode
+  , queueFamilyIndices :: [Word]
+  , preTransform :: SurfaceTransformFlags
+  , compositeAlpha :: CompositeAlphaFlags
+  , presentMode :: PresentMode
+  , clipped :: Bool
+  }
+  deriving (Eq, Ord, Show)
 
-type Swapchain = Handle VkSwapchainKHR
+type Swapchain d = Handle VkSwapchainKHR
 
 type FNDebugReportCallback =
   (VkDebugReportFlagsEXT ->
@@ -660,9 +662,10 @@ data SubmitInfo = SubmitInfo { waitSemaphores :: [(Semaphore, PipelineStage)]
                              , signalSemaphores :: [Semaphore]
                              }
 
-data PresentInfo = PresentInfo { waitSemaphores :: [Semaphore]
-                               , swapchains :: [(Swapchain, Word)]
-                               }
+data PresentInfo d = PresentInfo
+  { waitSemaphores :: [Semaphore]
+  , swapchains :: [(Swapchain d, Word)]
+  }
 
 type PipelineCreateFlags = Flags VkPipelineCreateFlags
 

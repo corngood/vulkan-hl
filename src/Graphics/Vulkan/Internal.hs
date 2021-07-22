@@ -19,10 +19,20 @@ liftR2 :: (MonadReader r m, MonadIO m) => (r -> b -> c -> IO a) -> b -> c -> m a
 liftR2 f b c = ask >>= \r -> liftIO $ f r b c
 
 
-newtype InstanceM x m a = InstanceM (ReaderT Instance m a)
+newtype InstanceM i m a = InstanceM (ReaderT Instance m a)
   deriving (Functor, Applicative, Monad, MonadIO, MonadReader Instance, MonadTrans)
 
-newtype DeviceM x m a = DeviceM (ReaderT Device m a)
+newtype DeviceM d m a = DeviceM (ReaderT Device m a)
   deriving (Functor, Applicative, Monad, MonadIO, MonadReader Device, MonadTrans)
 
 newtype OwnedBy x y = OwnedBy y
+
+
+class MonadIO m => HasInstance m where
+  askInstance :: m Instance
+
+instance MonadIO m => HasInstance (InstanceM i m) where
+  askInstance = ask
+
+instance (MonadIO m, HasInstance m) => HasInstance (DeviceM d m) where
+  askInstance = lift askInstance

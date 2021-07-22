@@ -29,9 +29,9 @@ import Paths_vulkan_hl
 
 findAndCreateDevice
   :: MonadIO m
-  => OwnedBy y Surface
-  -> ((OwnedBy y PhysicalDevice, Word, Device, Queue, CommandPool)-> DeviceM x (InstanceM y m) a)
-  -> InstanceM y m a
+  => Surface i
+  -> ((PhysicalDevice i, Word, Device, Queue, CommandPool)-> DeviceM d (InstanceM i m) a)
+  -> InstanceM i m a
 findAndCreateDevice surface inner = do
   m <- findDevice =<< Vk.physicalDevices
   case m of
@@ -63,7 +63,7 @@ findSurfaceFormat [SurfaceFormat Undefined cs] = SurfaceFormat B8G8R8A8Srgb cs
 findSurfaceFormat (sf:_) = sf
 findSurfaceFormat [] = error "no surface format"
 
-swapchainExtents :: Window -> SurfaceCapabilities -> IO Extent2D
+swapchainExtents :: MonadIO m => Window -> SurfaceCapabilities -> m Extent2D
 swapchainExtents w sc =
   case currentExtent sc of
     Extent2D (-1) _ -> (\(V2 x y) -> Extent2D (fromIntegral x) (fromIntegral y)) <$> get (windowSize w)
@@ -83,6 +83,8 @@ run window = do
   let
     app = ApplicationInfo "vulkan-test" (Version 0 0 0) "none" (Version 0 0 0) (Version 1 0 3)
     ici = InstanceCreateInfo app ["VK_LAYER_LUNARG_standard_validation"] ("VK_EXT_debug_report" : "VK_KHR_surface" : iext)
+  surface2 <- withInstance ici $ Vk.createSurface window
+
   withInstance ici $ do
     cb <- Vk.createDebugReportCallback
       (Vk.Error .|.
@@ -92,14 +94,15 @@ run window = do
       (\f ot o l mc lp m -> print (f, ot, o, l, mc, lp, m) >> return False)
     surface <- Vk.createSurface window
     findAndCreateDevice surface $ \(physicalDevice, qf, device, queue, commandPool) -> do
-      surfaceFormat <- lift $ findSurfaceFormat <$> Vk.surfaceFormats physicalDevice surface
+      surfaceFormat <- lift $ findSurfaceFormat <$> Vk.surfaceFormats physicalDevice surface2
       surfaceCaps <- lift $ Vk.surfaceCapabilities physicalDevice surface
-      extent@(Extent2D width height) <- liftIO $ swapchainExtents window surfaceCaps
+      extent@(Extent2D width height) <- swapchainExtents window surfaceCaps
       let imageCount = swapchainImageCount surfaceCaps
-      swapchain <- Vk.createSwapchain (SwapchainCreateInfo zeroBits surface' imageCount surfaceFormat
-                                        extent 1 ImageColorAttachment Exclusive
-                                        [qf] (currentTransform surfaceCaps) Opaque
-                                        Fifo True)
+      swapchain <- Vk.createSwapchain
+        (SwapchainCreateInfo zeroBits surface imageCount surfaceFormat
+          extent 1 ImageColorAttachment Exclusive
+          [qf] (currentTransform surfaceCaps) Opaque
+          Fifo True)
       liftIO $ do
         images <- swapchainImages device swapchain
         imageViews <- mapM
@@ -179,7 +182,7 @@ run window = do
           nullHandle
           (-1)
 
-        memProp <- memoryProperties physicalDevice'
+        memProp <- memoryProperties physicalDevice
 
         buffer <- createBuffer device $ BufferCreateInfo zeroBits (3 * 5 * 4) VertexBuffer Exclusive []
         memReq <- memoryRequirements device buffer

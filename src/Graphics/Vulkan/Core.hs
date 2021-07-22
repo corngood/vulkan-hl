@@ -79,12 +79,12 @@ destroyInstance i = (wrapValue i $
 instanceExtensionProperties :: IO [Extension]
 instanceExtensionProperties = wrapCountArray $ vkEnumerateInstanceExtensionProperties nullPtr
 
-extensionProperties :: PhysicalDevice -> IO [Extension]
+extensionProperties :: PhysicalDevice i -> IO [Extension]
 extensionProperties p =
   wrapValue p (wrapConst nullPtr wrapCountArray)
   vkEnumerateDeviceExtensionProperties
 
-physicalDevices :: Instance -> IO [PhysicalDevice]
+physicalDevices :: Instance -> IO [PhysicalDevice i]
 physicalDevices i = wrapValue i wrapCountArray vkEnumeratePhysicalDevices
 
 instance FromVk Extent2D VkExtent2D where fromVk (VkExtent2D w h) = Extent2D <$> fromVk w <*> fromVk h
@@ -104,17 +104,17 @@ instance WithVk QueueFamilyProperties VkQueueFamilyProperties where
   withVk (QueueFamilyProperties fl c tvb mitg) f =
     (wrapValue fl $ wrapValue c $ wrapValue tvb $ wrapValue mitg f) VkQueueFamilyProperties
 
-queueFamilyProperties :: PhysicalDevice -> IO [QueueFamilyProperties]
+queueFamilyProperties :: PhysicalDevice i -> IO [QueueFamilyProperties]
 queueFamilyProperties pd = wrapValue pd wrapCountArray vkGetPhysicalDeviceQueueFamilyProperties
 
-createSurface :: Window -> Instance -> IO Surface
+createSurface :: Window -> Instance -> IO (Surface i)
 createSurface (Window w) (Handle i) = Handle <$>
   alloca (\ps -> do
              r <- createSurfaceFFI w i ps
              unless r $ error "SDL_CreateVulkanSurface failed"
              peek ps)
 
-queueFamilySupportsPresent :: PhysicalDevice -> Word -> Surface -> IO Bool
+queueFamilySupportsPresent :: PhysicalDevice i -> Word -> Surface i -> IO Bool
 queueFamilySupportsPresent pd qi s =
   (wrapValue pd $ wrapValue qi $ wrapValue s $ wrapOutPtr id)
   vkGetPhysicalDeviceSurfaceSupportKHR
@@ -133,7 +133,7 @@ instance WithVk DeviceCreateInfo VkDeviceCreateInfo where
      f . ($ nullPtr))
     (VkDeviceCreateInfo VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO nullPtr (VkDeviceCreateFlags zeroBits))
 
-createDevice :: PhysicalDevice -> DeviceCreateInfo -> IO Device
+createDevice :: PhysicalDevice i -> DeviceCreateInfo -> IO Device
 createDevice pd a =
   (wrapValue pd $ wrapInPtr a $ wrapConst nullPtr $ wrapOutPtr id)
   vkCreateDevice
@@ -159,7 +159,7 @@ instance FromVk SurfaceFormat VkSurfaceFormatKHR where
 instance WithVk SurfaceFormat VkSurfaceFormatKHR where
   withVk (SurfaceFormat (Enumerator f) (Enumerator cs)) fn = fn (VkSurfaceFormatKHR f cs)
 
-surfaceFormats :: PhysicalDevice -> Surface -> IO [SurfaceFormat]
+surfaceFormats :: PhysicalDevice i -> Surface i -> IO [SurfaceFormat]
 surfaceFormats pd s =
   (wrapValue pd $ wrapValue s wrapCountArray)
   vkGetPhysicalDeviceSurfaceFormatsKHR
@@ -174,7 +174,7 @@ instance WithVk SurfaceCapabilities VkSurfaceCapabilitiesKHR where
     (wrapValue miic $ wrapValue maic $ wrapValue ce $ wrapValue miie $ wrapValue maie $ wrapValue maial $
      wrapValue st $ wrapValue ct $ wrapValue sca $ wrapValue suf f) VkSurfaceCapabilitiesKHR
 
-surfaceCapabilities :: PhysicalDevice -> Surface -> IO SurfaceCapabilities
+surfaceCapabilities :: PhysicalDevice i -> Surface i -> IO SurfaceCapabilities
 surfaceCapabilities pd s =
   (wrapValue pd $ wrapValue s $ wrapOutPtr id)
   vkGetPhysicalDeviceSurfaceCapabilitiesKHR
@@ -189,7 +189,7 @@ allocateCommandBuffers d (Handle cp) (Enumerator l) n =
 allocateCommandBuffer :: Device -> CommandPool -> CommandBufferLevel -> IO CommandBuffer
 allocateCommandBuffer d cp l = head <$> allocateCommandBuffers d cp l 1
 
-instance WithVk SwapchainCreateInfo VkSwapchainCreateInfoKHR where
+instance WithVk (SwapchainCreateInfo d) VkSwapchainCreateInfoKHR where
   withVk (SwapchainCreateInfo f s mic (SurfaceFormat imf imcs) ie ial iu ism qfi pt ca pm c) fn =
     (wrapValue f $
      wrapValue s $
@@ -209,12 +209,12 @@ instance WithVk SwapchainCreateInfo VkSwapchainCreateInfoKHR where
      fn)
     (VkSwapchainCreateInfoKHR VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR nullPtr)
 
-createSwapchain :: Device -> SwapchainCreateInfo -> IO Swapchain
+createSwapchain :: Device -> SwapchainCreateInfo d -> IO (Swapchain d)
 createSwapchain d ci =
   (wrapValue d $ wrapInPtr ci $ wrapConst nullPtr $ wrapOutPtr id)
   vkCreateSwapchainKHR
 
-swapchainImages :: Device -> Swapchain -> IO [Image]
+swapchainImages :: Device -> Swapchain d -> IO [Image]
 swapchainImages d s =
   (wrapValue d $ wrapValue s wrapCountArray)
   vkGetSwapchainImagesKHR
@@ -333,7 +333,7 @@ destroySemaphore d s =
   (wrapValue d $ wrapValue s $ wrapConst nullPtr id)
   vkDestroySemaphore
 
-acquireNextImage :: Device -> Swapchain -> Semaphore -> IO Word
+acquireNextImage :: Device -> Swapchain d -> Semaphore -> IO Word
 acquireNextImage d sc s =
   (wrapValue d $ wrapValue sc $ wrapConst maxBound $ wrapValue s $ wrapValue nullHandle $ wrapOutPtr id)
   vkAcquireNextImageKHR
@@ -471,7 +471,7 @@ instance WithVk SubmitInfo VkSubmitInfo where
 queueSubmit :: Queue -> [SubmitInfo] -> Fence -> IO ()
 queueSubmit q si f = (wrapValue q $ wrapInArray si $ wrapValue f id) vkQueueSubmit >>= check
 
-instance WithVk PresentInfo VkPresentInfoKHR where
+instance WithVk (PresentInfo d) VkPresentInfoKHR where
   withVk (PresentInfo ws sc) f =
     wrapInArray ws
     (wrapInArray (fst <$> sc) $
@@ -479,7 +479,7 @@ instance WithVk PresentInfo VkPresentInfoKHR where
      wrapConst nullPtr f) $
     VkPresentInfoKHR VK_STRUCTURE_TYPE_PRESENT_INFO_KHR nullPtr
 
-queuePresent :: Queue -> PresentInfo -> IO ()
+queuePresent :: Queue -> PresentInfo d -> IO ()
 queuePresent q pi = (wrapValue q $ wrapInPtr pi id) vkQueuePresentKHR >>= check
 
 queueWaitIdle :: Queue -> IO ()
@@ -763,7 +763,7 @@ instance FromVk PhysicalDeviceMemoryProperties VkPhysicalDeviceMemoryProperties 
   fromVk (VkPhysicalDeviceMemoryProperties mtc mt mhc mh) =
     PhysicalDeviceMemoryProperties <$> fromLenVector mtc mt <*> fromLenVector mhc mh
 
-memoryProperties :: PhysicalDevice -> IO PhysicalDeviceMemoryProperties
+memoryProperties :: PhysicalDevice i -> IO PhysicalDeviceMemoryProperties
 memoryProperties pd =
   (wrapValue pd $
    wrapOutPtr id)
